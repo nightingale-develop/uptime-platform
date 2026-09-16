@@ -1,25 +1,19 @@
+name: uptime-platform
+
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-uptime}
       POSTGRES_USER: ${POSTGRES_USER:-uptime}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uptime}
-
-    ports:
-      - "127.0.0.1:5432:5432"
-
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-uptime} -d ${POSTGRES_DB:-uptime}"
-        ]
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,16 +21,10 @@ services:
   migrate:
     image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
     restart: "no"
-
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:-uptime}@postgres:5432/${POSTGRES_DB:-uptime}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
       NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-
-    command:
-      - alembic
-      - upgrade
-      - head
-
+    command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,27 +32,20 @@ services:
   api:
     image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
     restart: unless-stopped
-
     cap_add:
       - NET_RAW
-
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:-uptime}@postgres:5432/${POSTGRES_DB:-uptime}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
       NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_ACCESS_TOKEN_TTL_MINUTES: ${JWT_ACCESS_TOKEN_TTL_MINUTES:-60}
-
       API_KEY_HASH_SECRET: ${API_KEY_HASH_SECRET:?API_KEY_HASH_SECRET is required}
-
       REFRESH_TOKEN_HASH_SECRET: ${REFRESH_TOKEN_HASH_SECRET:?REFRESH_TOKEN_HASH_SECRET is required}
       REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
       REFRESH_COOKIE_NAME: ${REFRESH_COOKIE_NAME:-refresh_token}
       REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-false}
       REFRESH_COOKIE_SAMESITE: ${REFRESH_COOKIE_SAMESITE:-lax}
-
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
-
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
     command:
       - fastapi
       - run
@@ -73,41 +54,25 @@ services:
       - 0.0.0.0
       - --port
       - "8000"
-
-    ports:
-    - "127.0.0.1:8000:8000"
-
     depends_on:
       migrate:
         condition: service_completed_successfully
-
     healthcheck:
       test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
-        ]
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
   frontend:
-    image: ${FRONTEND_IMAGE:-uptime-platform-frontend:local}
-
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: /backend
-
+    image: ${FRONTEND_IMAGE:-sashastudent/uptime-platform-frontend:latest}
     restart: unless-stopped
-
     ports:
       - "127.0.0.1:8080:80"
-
     depends_on:
       api:
         condition: service_healthy
@@ -115,19 +80,12 @@ services:
   scheduler:
     image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
     restart: unless-stopped
-
     cap_add:
       - NET_RAW
-
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:-uptime}@postgres:5432/${POSTGRES_DB:-uptime}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
       NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-
-    command:
-      - python
-      - -m
-      - uptime_platform.scheduler.main
-
+    command: ["python", "-m", "uptime_platform.scheduler.main"]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -135,74 +93,52 @@ services:
   notification-worker:
     image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
     restart: unless-stopped
-
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:-uptime}@postgres:5432/${POSTGRES_DB:-uptime}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
       NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-
-    command:
-      - python
-      - -m
-      - uptime_platform.notifications.main
-
+    command: ["python", "-m", "uptime_platform.notifications.main"]
     depends_on:
       migrate:
         condition: service_completed_successfully
 
   postgres-test:
     image: postgres:17-alpine
-
-    profiles:
-      - test
-
+    profiles: ["test"]
     environment:
       POSTGRES_DB: uptime_test
       POSTGRES_USER: uptime
       POSTGRES_PASSWORD: uptime
-
     ports:
       - "127.0.0.1:5433:5432"
-
     tmpfs:
       - /var/lib/postgresql/data
-
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U uptime -d uptime_test"
-        ]
+      test: ["CMD-SHELL", "pg_isready -U uptime -d uptime_test"]
       interval: 2s
       timeout: 5s
       retries: 10
 
   mailpit:
     image: axllent/mailpit:latest
-    profiles:
-      - mail
+    profiles: ["mail"]
     ports:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
 
-
   caddy:
     image: caddy:2
-    profiles:
-      - public
-
+    profiles: ["public"]
     restart: unless-stopped
-
     ports:
       - "80:80"
       - "443:443"
-
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-
     depends_on:
-      - frontend
+      frontend:
+        condition: service_started
 
 volumes:
   postgres_data:
