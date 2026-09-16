@@ -1,10 +1,11 @@
 # Uptime Platform
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/sashastudent/uptime-platform)](https://hub.docker.com/r/sashastudent/uptime-platform)
+[![Backend Docker Pulls](https://img.shields.io/docker/pulls/sashastudent/uptime-platform)](https://hub.docker.com/r/sashastudent/uptime-platform)
+[Frontend image](https://hub.docker.com/r/sashastudent/uptime-platform-frontend)
 
 Self-hosted uptime monitoring, incident management, notifications, public status pages, and web management UI built with FastAPI and Vue.js.
 
-> **Status:** MVP. The backend monitoring platform and Vue.js management UI are implemented. The frontend supports responsive layouts. Production frontend packaging, deployment, and further hardening are planned.
+> **Release:** 1.0.0. The backend and responsive Vue.js management UI are included. The interactive installer supports localhost, a domain, or an IPv4 address. Review the deployment and security notes below before exposing an instance to the internet.
 ## Features
 
 ### Monitoring
@@ -71,13 +72,14 @@ Implemented features:
 
 The frontend uses Vue 3, TypeScript, Vite, Vue Router, Pinia, Axios, and SCSS.
 
-The management UI is currently run through the Vite development server. Production frontend packaging and deployment are not yet included in Docker Compose.
+The production frontend runs in an Nginx container built from `frontend/Dockerfile`. Nginx serves the Vue application and proxies `/backend/` to the FastAPI service.
 
 
 ### Platform
 
 * PostgreSQL persistence with Alembic migrations
-* Docker Compose backend deployment
+* Docker Compose deployment of the backend, frontend, PostgreSQL, and optional Caddy HTTPS reverse proxy
+* Interactive `install.sh` for initial configuration, database migrations, and creation of the first organization owner
 * Unit, API, and PostgreSQL integration tests
 
 ## Repository Structure
@@ -85,15 +87,18 @@ The management UI is currently run through the Vite development server. Producti
 ```text
 uptime-platform/
 ├── src/
-│   └── uptime_platform/        # FastAPI backend
+│   └── uptime_platform/        # FastAPI backend and bootstrap CLI
 ├── migrations/
 ├── tests/
 ├── frontend/                   # Vue 3 SPA
 │   ├── src/
 │   ├── public/
+│   ├── Dockerfile              # Frontend image
+│   ├── nginx.conf              # SPA and API reverse proxy
 │   ├── package.json
 │   ├── package-lock.json
 │   └── vite.config.ts
+├── install.sh                  # Interactive installer
 ├── Dockerfile                  # Backend image
 ├── compose.yml
 ├── pyproject.toml
@@ -106,52 +111,33 @@ The backend and frontend are maintained in the same repository but use separate 
 
 ## Quick Start
 
-Clone the repository:
+The interactive installer runs **from a checkout on a Linux host**. Prerequisites: Bash, Git, a running Docker daemon, Docker Compose v2, `curl`, `openssl`, Python 3, and `getent`. The installer does **not** install Docker or download application images: it builds the backend and frontend locally.
+
+After the v1.0.0 tag is published, install the release:
 
 ```bash
-git clone https://github.com/nightingale-develop/uptime-platform.git
+git clone --branch v1.0.0 --depth 1 https://github.com/SashaSolovey1/uptime-platform.git
 cd uptime-platform
+sudo bash install.sh
 ```
 
-Create the backend environment file:
+The installer asks for an address, administrator email/password, and organization name; generates secrets in `.env`; initializes PostgreSQL; runs Alembic migrations; creates the first organization owner; starts services; and checks the frontend and API.
 
-```bash
-cp .env.example .env
-```
+| Address entered | Access URL | Notes |
+| --- | --- | --- |
+| `localhost` or `127.0.0.1` | `http://localhost:8080` | Local-only mode; Caddy is not started. |
+| Domain, e.g. `uptime.example.com` | `https://uptime.example.com` | Configure DNS and make ports 80/443 reachable for Caddy certificate issuance. |
+| IPv4 address (or empty input to detect public IPv4) | `https://<your-ip>` | Uses Caddy's **private CA**. Remote browsers do not automatically trust its certificate; importing that CA is necessary before entering credentials. Public-IP detection does not guarantee inbound reachability through NAT, CGNAT, or a firewall. |
 
-Generate secrets:
+The installer preserves its generated `.env`, secrets, and Docker volumes on reruns. It does not replace an existing, manually managed `.env`. **Do not use `make docker-reset` on installations with data you want to keep.**
 
-```bash
-openssl rand -hex 32
-openssl rand -hex 32
-openssl rand -hex 32
-```
+For an installed instance, use its selected address plus `/backend/health` to check the API. Direct API documentation is available locally at `http://127.0.0.1:8000/docs` when the API host port remains mapped as in `compose.yml`.
 
-Use the generated values for:
+### Deployment notes
 
-```dotenv
-JWT_SECRET=<generated-secret>
-API_KEY_HASH_SECRET=<generated-secret>
-REFRESH_TOKEN_HASH_SECRET=<generated-secret>
-```
+The web UI is served by Nginx. Browser API requests to `/backend/api/v1/...` are forwarded to FastAPI. The backend and frontend use **separate images**, with PostgreSQL and optional Caddy managed by the same Compose file.
 
-Start the backend platform:
-
-```bash
-make docker-up
-```
-
-API documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Health check:
-
-```text
-http://127.0.0.1:8000/health
-```
+The initial organization owner is **not** a global superuser. The regular registration endpoint remains available unless you disable it separately. The provided installer is an interactive source-based installer, not a Docker-less one-command VPS provisioner. Before public deployment, validate monitoring target restrictions, registration policy, TLS trust, backups, and your firewall configuration. The IP/private-CA option does not provide a publicly trusted certificate by default.
 
 ### Frontend Development
 
@@ -165,7 +151,7 @@ Install frontend dependencies:
 
 ```bash
 cd frontend
-npm install
+npm ci
 ```
 
 Create the frontend environment file:
@@ -456,7 +442,7 @@ Install dependencies:
 
 ```bash
 cd frontend
-npm install
+npm ci
 ```
 
 Start the development server:
@@ -476,57 +462,30 @@ The frontend uses:
 * ESLint
 * Prettier
 
-The frontend currently runs as a separate Vite development process and communicates with the FastAPI API over HTTP.
+In development, Vite runs separately and communicates with the FastAPI API over HTTP. In the Docker deployment, Nginx serves the compiled SPA and proxies the API.
 
 ### Docker
 
-Build the backend application image:
+For a new self-hosted installation, use `sudo bash install.sh` from the project checkout. The installer builds both images locally and starts the selected deployment mode.
+
+Show service status and follow logs:
 
 ```bash
-make docker-build
+docker compose --profile public ps -a
+docker compose --profile public logs --tail=100 api frontend caddy
 ```
 
-Start the backend stack:
+For localhost mode, Caddy is not started; `docker compose ps -a` and `docker compose logs api frontend` are sufficient. Some systems require `sudo docker compose`.
+
+Stop the application while preserving volumes:
 
 ```bash
-make docker-up
+docker compose --profile public down --remove-orphans
 ```
 
-Rebuild the backend application containers while preserving the database:
+> **Destructive:** `make docker-reset` removes Docker volumes, including local PostgreSQL data. Do not use it as an update or recovery command.
 
-```bash
-make docker-rebuild
-```
-
-Show container status:
-
-```bash
-make docker-ps
-```
-
-Follow service logs:
-
-```bash
-make logs-api
-make logs-scheduler
-make logs-notification-worker
-```
-
-Stop and remove containers:
-
-```bash
-make docker-down
-```
-
-Rebuild the backend application from a clean database:
-
-```bash
-make docker-reset
-```
-
-> `make docker-reset` removes Docker volumes and deletes local PostgreSQL data.
-
-The Vue frontend is not yet included in the production Docker deployment.
+The backend and frontend Docker Hub images are published separately. Image-only deployments require configuring the image names in Compose and providing a valid `.env`; see [Docker images](#docker-images). The interactive installer currently builds from source regardless of whether images have been published.
 
 ## Tech Stack
 
@@ -543,8 +502,6 @@ Vue 3 · TypeScript · Vite · Vue Router · Pinia · Axios · ESLint · Prettie
 ### Web UI
 
 - Cross-device responsive testing and accessibility improvements
-- Custom confirmation dialogs and dedicated 404 page
-- Production frontend build and Docker deployment
 - End-to-end frontend testing
 
 ### Platform
@@ -555,25 +512,26 @@ Vue 3 · TypeScript · Vite · Vue Router · Pinia · Axios · ESLint · Prettie
 * Check history retention and cleanup
 * Prometheus metrics and Grafana dashboards
 * CI/CD with automated tests and Docker image publishing
-* Production hardening and deployment documentation
+* Automated Docker provisioning and installation from prebuilt release images
+* Production hardening, SSRF/monitor-target controls, and deployment documentation
 
-## Docker
+## Docker images
 
-The current published Docker image contains the backend platform.
+Uptime Platform publishes two application images. The backend image is used by the API, scheduler, notification worker, and migration service; the frontend image serves Vue with Nginx. Both are needed for the full application (alongside PostgreSQL and optional Caddy).
 
-The image is available on Docker Hub:
-
-```bash
-docker pull sashastudent/uptime-platform:latest
-```
-
-The latest versioned backend release is:
+| Component | Versioned image |
+| --- | --- |
+| Backend | `sashastudent/uptime-platform:1.0.0` |
+| Frontend | `sashastudent/uptime-platform-frontend:1.0.0` |
 
 ```bash
-docker pull sashastudent/uptime-platform:latest
+docker pull sashastudent/uptime-platform:1.0.0
+docker pull sashastudent/uptime-platform-frontend:1.0.0
 ```
 
-The Vue frontend is currently under development and is not yet included in the published Docker image.
+The `latest` tag can also be published for each image. Prefer matching, explicit version tags when deploying or reproducing a release. Publishing an image does not install the complete application by itself: use the Compose configuration and a properly initialized database.
+
+The included `install.sh` currently **builds images from source**; it does not automatically pull the published application images. To deploy the published images directly, ensure that `compose.yml` defines `frontend.image`, set `APP_IMAGE` and `FRONTEND_IMAGE` to matching versioned tags in `.env`, and run Compose without rebuilding. This is an alternative deployment workflow and is not yet automated by the installer.
 
 ## License
 

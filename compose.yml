@@ -95,6 +95,8 @@ services:
       start_period: 10s
 
   frontend:
+    image: ${FRONTEND_IMAGE:-uptime-platform-frontend:local}
+
     build:
       context: ./frontend
       dockerfile: Dockerfile
