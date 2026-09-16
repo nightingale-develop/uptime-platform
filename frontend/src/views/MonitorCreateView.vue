@@ -7,6 +7,30 @@ import { useMonitorStore } from '@/stores/monitors'
 import { useOrganizationStore } from '@/stores/organizations'
 import type { DnsRecordType, HttpMethod, MonitorCreate, MonitorType } from '@/types/monitor'
 
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
+
+const monitorTypeOptions: SelectOption<MonitorType>[] = [
+  { value: 'http', label: 'HTTP' },
+  { value: 'tcp', label: 'TCP' },
+  { value: 'dns', label: 'DNS' },
+  { value: 'tls', label: 'TLS' },
+  { value: 'icmp', label: 'ICMP' },
+]
+
+const httpMethodOptions: SelectOption<HttpMethod>[] = [
+  { value: 'GET', label: 'GET' },
+  { value: 'HEAD', label: 'HEAD' },
+]
+
+const dnsRecordTypeOptions: SelectOption<DnsRecordType>[] = [
+  { value: 'A', label: 'A' },
+  { value: 'AAAA', label: 'AAAA' },
+  { value: 'CNAME', label: 'CNAME' },
+  { value: 'MX', label: 'MX' },
+  { value: 'TXT', label: 'TXT' },
+]
+
 const router = useRouter()
 
 const monitorStore = useMonitorStore()
@@ -202,18 +226,7 @@ async function submitMonitor(): Promise<void> {
 
         <div class="form-field">
           <label for="monitor-type"> Monitor type </label>
-
-          <select id="monitor-type" v-model="monitorType">
-            <option value="http">HTTP</option>
-
-            <option value="tcp">TCP</option>
-
-            <option value="dns">DNS</option>
-
-            <option value="tls">TLS</option>
-
-            <option value="icmp">ICMP</option>
-          </select>
+          <AppSelect id="monitor-type" v-model="monitorType" :options="monitorTypeOptions" />
         </div>
       </div>
 
@@ -235,12 +248,7 @@ async function submitMonitor(): Promise<void> {
 
           <div class="form-field">
             <label for="http-method"> Method </label>
-
-            <select id="http-method" v-model="httpMethod">
-              <option value="GET">GET</option>
-
-              <option value="HEAD">HEAD</option>
-            </select>
+            <AppSelect id="http-method" v-model="httpMethod" :options="httpMethodOptions" />
           </div>
 
           <div class="form-field">
@@ -328,18 +336,11 @@ async function submitMonitor(): Promise<void> {
 
             <div class="form-field">
               <label for="dns-record-type"> Record type </label>
-
-              <select id="dns-record-type" v-model="dnsRecordType">
-                <option value="A">A</option>
-
-                <option value="AAAA">AAAA</option>
-
-                <option value="CNAME">CNAME</option>
-
-                <option value="MX">MX</option>
-
-                <option value="TXT">TXT</option>
-              </select>
+              <AppSelect
+                id="dns-record-type"
+                v-model="dnsRecordType"
+                :options="dnsRecordTypeOptions"
+              />
             </div>
           </div>
         </template>

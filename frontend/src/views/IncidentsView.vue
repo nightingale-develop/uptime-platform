@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { useIncidentStore } from '@/stores/incidents'
 import { useMonitorStore } from '@/stores/monitors'
 import { useOrganizationStore } from '@/stores/organizations'
 import type { Incident, IncidentStatus } from '@/types/incident'
+
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
 
 const incidentStore = useIncidentStore()
 const monitorStore = useMonitorStore()
@@ -14,6 +17,27 @@ const statusFilter = ref<IncidentStatus | ''>('')
 const monitorFilter = ref('')
 
 const pageError = ref<string | null>(null)
+
+const statusOptions: SelectOption<IncidentStatus | ''>[] = [
+  { value: '', label: 'All statuses' },
+  { value: 'open', label: 'Open' },
+  { value: 'resolved', label: 'Resolved' },
+]
+
+const monitorOptions = computed<SelectOption<string>[]>(() => {
+  return [
+    {
+      value: '',
+      label: 'All monitors',
+    },
+    ...monitorStore.monitors.map((monitor) => {
+      return {
+        value: monitor.id,
+        label: monitor.name,
+      }
+    }),
+  ]
+})
 
 async function loadIncidents(): Promise<void> {
   try {
@@ -103,26 +127,13 @@ watch(
     <div class="incident-filters">
       <div class="filter-field">
         <label for="incident-status"> Status </label>
-
-        <select id="incident-status" v-model="statusFilter">
-          <option value="">All statuses</option>
-
-          <option value="open">Open</option>
-
-          <option value="resolved">Resolved</option>
-        </select>
+        <AppSelect id="incident-status" v-model="statusFilter" :options="statusOptions" />
       </div>
 
       <div class="filter-field">
         <label for="incident-monitor"> Monitor </label>
 
-        <select id="incident-monitor" v-model="monitorFilter">
-          <option value="">All monitors</option>
-
-          <option v-for="monitor in monitorStore.monitors" :key="monitor.id" :value="monitor.id">
-            {{ monitor.name }}
-          </option>
-        </select>
+        <AppSelect id="incident-monitor" v-model="monitorFilter" :options="monitorOptions" />
       </div>
     </div>
 

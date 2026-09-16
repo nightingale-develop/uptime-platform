@@ -12,6 +12,40 @@ import type {
 
 import { getMaintenanceWindowStatus } from '@/utils/maintenance'
 
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
+
+const monitorOptions = computed<SelectOption<string>[]>(() => {
+  return [
+    {
+      value: '',
+      label: 'Select monitor',
+      disabled: true,
+    },
+    ...monitorStore.monitors.map((monitor) => {
+      return {
+        value: monitor.id,
+        label: monitor.name,
+      }
+    }),
+  ]
+})
+
+const monitorFilterOptions = computed<SelectOption<string>[]>(() => {
+  return [
+    {
+      value: '',
+      label: 'All monitors',
+    },
+    ...monitorStore.monitors.map((monitor) => {
+      return {
+        value: monitor.id,
+        label: monitor.name,
+      }
+    }),
+  ]
+})
+
 const maintenanceStore = useMaintenanceStore()
 const monitorStore = useMonitorStore()
 const organizationStore = useOrganizationStore()
@@ -173,18 +207,7 @@ watch(
         <div class="form-grid">
           <div class="form-field">
             <label for="maintenance-monitor"> Monitor </label>
-
-            <select id="maintenance-monitor" v-model="monitorId" required>
-              <option disabled value="">Select monitor</option>
-
-              <option
-                v-for="monitor in monitorStore.monitors"
-                :key="monitor.id"
-                :value="monitor.id"
-              >
-                {{ monitor.name }}
-              </option>
-            </select>
+            <AppSelect id="maintenance-monitor" v-model="monitorId" :options="monitorOptions" />
           </div>
 
           <div />
@@ -231,14 +254,11 @@ watch(
     <div class="maintenance-filters">
       <div class="filter-field">
         <label for="maintenance-filter-monitor"> Monitor </label>
-
-        <select id="maintenance-filter-monitor" v-model="monitorFilter">
-          <option value="">All monitors</option>
-
-          <option v-for="monitor in monitorStore.monitors" :key="monitor.id" :value="monitor.id">
-            {{ monitor.name }}
-          </option>
-        </select>
+        <AppSelect
+          id="maintenance-filter-monitor"
+          v-model="monitorFilter"
+          :options="monitorFilterOptions"
+        />
       </div>
     </div>
 

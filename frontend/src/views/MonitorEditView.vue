@@ -7,6 +7,9 @@ import { useMonitorStore } from '@/stores/monitors'
 import { useOrganizationStore } from '@/stores/organizations'
 import type { DnsRecordType, HttpMethod, Monitor, MonitorUpdate } from '@/types/monitor'
 
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
+
 const route = useRoute()
 const router = useRouter()
 
@@ -52,6 +55,19 @@ const canUpdateMonitor = computed(() => {
 
   return role === 'owner' || role === 'admin' || role === 'member'
 })
+
+const httpMethodOptions: SelectOption<HttpMethod>[] = [
+  { value: 'GET', label: 'GET' },
+  { value: 'HEAD', label: 'HEAD' },
+]
+
+const dnsRecordTypeOptions: SelectOption<DnsRecordType>[] = [
+  { value: 'A', label: 'A' },
+  { value: 'AAAA', label: 'AAAA' },
+  { value: 'CNAME', label: 'CNAME' },
+  { value: 'MX', label: 'MX' },
+  { value: 'TXT', label: 'TXT' },
+]
 
 watch(httpMethod, (method) => {
   if (method === 'HEAD') {
@@ -348,12 +364,7 @@ onMounted(async () => {
 
           <div class="form-field">
             <label for="http-method"> Method </label>
-
-            <select id="http-method" v-model="httpMethod">
-              <option value="GET">GET</option>
-
-              <option value="HEAD">HEAD</option>
-            </select>
+            <AppSelect id="monitor-type" v-model="httpMethod" :options="httpMethodOptions" />
           </div>
 
           <div class="form-field">
@@ -419,18 +430,11 @@ onMounted(async () => {
 
             <div class="form-field">
               <label for="dns-record-type"> Record type </label>
-
-              <select id="dns-record-type" v-model="dnsRecordType">
-                <option value="A">A</option>
-
-                <option value="AAAA">AAAA</option>
-
-                <option value="CNAME">CNAME</option>
-
-                <option value="MX">MX</option>
-
-                <option value="TXT">TXT</option>
-              </select>
+              <AppSelect
+                id="monitor-type"
+                v-model="dnsRecordType"
+                :options="dnsRecordTypeOptions"
+              />
             </div>
           </div>
         </template>

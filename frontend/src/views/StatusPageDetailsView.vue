@@ -7,6 +7,9 @@ import { useOrganizationStore } from '@/stores/organizations'
 import { useStatusPageStore } from '@/stores/status-pages'
 import type { StatusPage, StatusPageMonitor } from '@/types/status-page'
 
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
+
 const route = useRoute()
 const router = useRouter()
 
@@ -43,6 +46,22 @@ const availableMonitors = computed(() => {
     return !existingIds.has(monitor.id)
   })
 })
+
+const availableMonitorOptions =
+  computed<SelectOption<string>[]>(() => {
+    return [
+      {
+        value: '',
+        label: 'Select monitor',
+      },
+      ...availableMonitors.value.map((monitor) => {
+        return {
+          value: monitor.id,
+          label: monitor.name,
+        }
+      }),
+    ]
+  })
 
 function getPageId(): string | null {
   const pageId = route.params.pageId
@@ -268,14 +287,11 @@ watch(
         </div>
 
         <div v-if="canManageStatusPage" class="status-page-monitor-add">
-          <select v-model="monitorToAdd">
-            <option value="">Select monitor</option>
-
-            <option v-for="monitor in availableMonitors" :key="monitor.id" :value="monitor.id">
-              {{ monitor.name }}
-            </option>
-          </select>
-
+          <AppSelect
+            id="status-page-monitor"
+            v-model="monitorToAdd"
+            :options="availableMonitorOptions"
+          />
           <button
             class="button-primary"
             type="button"

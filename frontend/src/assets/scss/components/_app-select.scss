@@ -1,0 +1,144 @@
+@use '../variables' as *;
+
+.app-select {
+  position: relative;
+
+  width: 100%;
+  min-width: 0;
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 12px;
+
+    border: 1px solid $color-control-border;
+    border-radius: $radius-small;
+
+    color: $color-heading;
+    background: $color-surface;
+
+    font: inherit;
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+
+    &:hover:not(:disabled) {
+      border-color: $color-primary;
+    }
+
+    &:focus-visible {
+      border-color: $color-primary;
+      outline: none;
+
+      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+    }
+
+    &:disabled {
+      color: $color-muted;
+      background: $color-background;
+
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+  }
+
+  &__value {
+    overflow: hidden;
+
+    min-width: 0;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+
+    color: $color-muted;
+    font-size: 11px;
+
+    transition: transform 0.15s ease;
+
+    &--open {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__menu {
+    position: fixed;
+    z-index: 1000;
+
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    padding: 6px;
+
+    border: 1px solid $color-border;
+    border-radius: $radius-medium;
+
+    background: $color-surface;
+
+    box-shadow:
+      0 12px 28px rgb(15 23 42 / 0.16),
+      0 2px 6px rgb(15 23 42 / 0.08);
+  }
+
+  &__option {
+    display: block;
+
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 10px;
+
+    border: 0;
+    border-radius: $radius-small;
+
+    color: $color-text;
+    background: transparent;
+
+    font: inherit;
+    text-align: left;
+
+    cursor: pointer;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      outline: none;
+      background: $color-background;
+    }
+
+    &--selected {
+      color: $color-primary;
+      background: $color-primary-background;
+
+      font-weight: 600;
+    }
+
+    &:disabled {
+      color: $color-muted;
+
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .app-select {
+    &__trigger,
+    &__option {
+      min-height: 44px;
+      font-size: 16px;
+    }
+  }
+}

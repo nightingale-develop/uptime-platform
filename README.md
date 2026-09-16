@@ -4,8 +4,7 @@
 
 Self-hosted uptime monitoring, incident management, notifications, public status pages, and web management UI built with FastAPI and Vue.js.
 
-> **Status:** MVP. The project is under active development. The backend monitoring platform is functional, while the Vue.js management UI is currently being developed.
-
+> **Status:** MVP. The backend monitoring platform and Vue.js management UI are implemented. The frontend supports responsive layouts. Production frontend packaging, deployment, and further hardening are planned.
 ## Features
 
 ### Monitoring
@@ -48,28 +47,32 @@ Self-hosted uptime monitoring, incident management, notifications, public status
 
 ### Web UI
 
-The web UI is being developed as a Vue 3 single-page application inside the same repository under `frontend/`.
+The management interface is a responsive Vue 3 single-page application located in `frontend/`.
 
-Currently implemented:
+Implemented features:
 
-- Vue 3 + TypeScript + Vite application foundation
-- Vue Router navigation
-- Pinia application state management
-- Axios API client
-- Login and registration pages
-- JWT access token handling
-- Session restoration through rotating HttpOnly refresh tokens
-- Protected routes
-- Automatic access-token refresh and failed-request retry
-- Logout and refresh-session revocation
-- Organization selection and organization-scoped API requests
-- Role-aware UI permissions
-- Monitor list with status and configuration overview
-- Monitor creation for HTTP, TCP, DNS, TLS, and ICMP
-- Monitor editing
-- Monitor deletion
+* Dashboard with monitor status overview, open incidents, and recent incidents
+* User registration, login, logout, and session restoration
+* Automatic access-token refresh
+* Protected routes and role-aware interface
+* Organization creation and switching
+* Organization member and role management
+* Monitor creation, editing, deletion, and configuration
+* HTTP, TCP, DNS, TLS, and ICMP monitoring interfaces
+* Check history and monitor statistics
+* Incident list, filtering, and details
+* Maintenance window management
+* Webhook, Telegram, and email notification management
+* Public status pages and their administration
+* API key creation, listing, and revocation
+* Responsive layouts and mobile navigation
+* Reusable form controls and consistent styling
+* Lazy-loaded routes and page-specific styles
 
-The remaining monitoring and organization management screens are under development.
+The frontend uses Vue 3, TypeScript, Vite, Vue Router, Pinia, Axios, and SCSS.
+
+The management UI is currently run through the Vite development server. Production frontend packaging and deployment are not yet included in Docker Compose.
+
 
 ### Platform
 
@@ -539,8 +542,10 @@ Vue 3 · TypeScript · Vite · Vue Router · Pinia · Axios · ESLint · Prettie
 
 ### Web UI
 
-* Responsive UI
-* Production frontend build and Docker deployment
+- Cross-device responsive testing and accessibility improvements
+- Custom confirmation dialogs and dedicated 404 page
+- Production frontend build and Docker deployment
+- End-to-end frontend testing
 
 ### Platform
 

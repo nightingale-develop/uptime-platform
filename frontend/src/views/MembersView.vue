@@ -7,6 +7,9 @@ import { useOrganizationStore } from '@/stores/organizations'
 import type { OrganizationMember } from '@/types/member'
 import type { OrganizationRole } from '@/types/organization'
 
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
+
 const membersStore = useMembersStore()
 const organizationStore = useOrganizationStore()
 
@@ -14,6 +17,15 @@ const roles: OrganizationRole[] = ['owner', 'admin', 'member', 'viewer']
 
 const email = ref('')
 const role = ref<OrganizationRole>('member')
+
+const roleOptions:
+  SelectOption<OrganizationRole>[] =
+    roles.map((availableRole) => {
+      return {
+        value: availableRole,
+        label: formatRole(availableRole),
+      }
+    })
 
 const isAdding = ref(false)
 const updatingMemberId = ref<string | null>(null)
@@ -81,11 +93,10 @@ async function handleAddMember(): Promise<void> {
   }
 }
 
-async function handleRoleChange(member: OrganizationMember, event: Event): Promise<void> {
-  const target = event.target as HTMLSelectElement
-
-  const newRole = target.value as OrganizationRole
-
+async function handleRoleChange(
+  member: OrganizationMember,
+  newRole: OrganizationRole,
+): Promise<void> {
   if (newRole === member.role) {
     return
   }
@@ -94,13 +105,17 @@ async function handleRoleChange(member: OrganizationMember, event: Event): Promi
   updatingMemberId.value = member.user_id
 
   try {
-    await membersStore.updateMember(member.user_id, {
-      role: newRole,
-    })
+    await membersStore.updateMember(
+      member.user_id,
+      {
+        role: newRole,
+      },
+    )
   } catch (error) {
-    target.value = member.role
-
-    actionError.value = getApiErrorMessage(error, 'Unable to update member role')
+    actionError.value = getApiErrorMessage(
+      error,
+      'Unable to update member role',
+    )
   } finally {
     updatingMemberId.value = null
   }
@@ -187,12 +202,11 @@ watch(
 
           <div class="form-field">
             <label for="member-role"> Role </label>
-
-            <select id="member-role" v-model="role">
-              <option v-for="availableRole in roles" :key="availableRole" :value="availableRole">
-                {{ formatRole(availableRole) }}
-              </option>
-            </select>
+            <AppSelect
+              id="member-role"
+              v-model="role"
+              :options="roleOptions"
+            />
           </div>
         </div>
 
@@ -239,20 +253,20 @@ watch(
             </td>
 
             <td>
-              <select
+              <AppSelect
                 v-if="canManageMembers"
+                :id="`member-role-${member.user_id}`"
                 class="member-role-select"
-                :value="member.role"
+                :model-value="member.role"
+                :options="roleOptions"
                 :disabled="
-                  updatingMemberId === member.user_id || removingMemberId === member.user_id
+                  updatingMemberId === member.user_id
+                  || removingMemberId === member.user_id
                 "
-                @change="handleRoleChange(member, $event)"
-              >
-                <option v-for="availableRole in roles" :key="availableRole" :value="availableRole">
-                  {{ formatRole(availableRole) }}
-                </option>
-              </select>
-
+                @update:model-value="
+                  handleRoleChange(member, $event)
+                "
+              />
               <span v-else class="member-role" :class="`member-role--${member.role}`">
                 {{ formatRole(member.role) }}
               </span>

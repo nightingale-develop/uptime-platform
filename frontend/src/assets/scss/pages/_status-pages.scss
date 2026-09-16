@@ -85,15 +85,9 @@
 
   margin-bottom: 20px;
 
-  select {
-    flex: 1;
-    padding: 10px 12px;
-
-    border: 1px solid $color-control-border;
-    border-radius: $radius-small;
-
-    background: $color-surface;
-  }
+  .app-select {
+  flex: 1;
+}
 }
 
 .status-page-monitor-list {

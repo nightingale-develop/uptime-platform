@@ -11,6 +11,9 @@ import type {
   NotificationDestinationUpdate,
 } from '@/types/notification'
 
+import AppSelect from '@/components/AppSelect.vue'
+import type { SelectOption } from '@/types/select'
+
 const notificationStore = useNotificationStore()
 const organizationStore = useOrganizationStore()
 
@@ -48,6 +51,20 @@ const canManageNotifications = computed(() => {
 
   return role === 'owner' || role === 'admin' || role === 'member'
 })
+
+const destinationTypeOptions:
+  SelectOption<NotificationDestinationType>[] = [
+    { value: 'webhook', label: 'Webhook' },
+    { value: 'telegram', label: 'Telegram' },
+    { value: 'email', label: 'Email' },
+  ]
+
+const emailSecurityOptions:
+  SelectOption<EmailSecurity>[] = [
+    { value: 'none', label: 'None' },
+    { value: 'starttls', label: 'STARTTLS' },
+    { value: 'tls', label: 'TLS' },
+  ]
 
 function clearConfigFields(): void {
   webhookUrl.value = ''
@@ -407,13 +424,12 @@ watch(
           <div class="form-field">
             <label for="notification-type"> Type </label>
 
-            <select id="notification-type" v-model="destinationType" :disabled="isEditing">
-              <option value="webhook">Webhook</option>
-
-              <option value="telegram">Telegram</option>
-
-              <option value="email">Email</option>
-            </select>
+            <AppSelect
+            id="notification-type"
+            v-model="destinationType"
+            :options="destinationTypeOptions"
+            :disabled="isEditing"
+          />
 
             <small v-if="isEditing"> Destination type cannot be changed. </small>
           </div>
@@ -519,13 +535,11 @@ watch(
             <div class="form-field">
               <label for="email-security"> Security </label>
 
-              <select id="email-security" v-model="emailSecurity">
-                <option value="none">None</option>
-
-                <option value="starttls">STARTTLS</option>
-
-                <option value="tls">TLS</option>
-              </select>
+              <AppSelect
+              id="email-security"
+              v-model="emailSecurity"
+              :options="emailSecurityOptions"
+            />
             </div>
           </div>
         </template>
