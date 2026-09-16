@@ -9,6 +9,14 @@ Self-hosted uptime monitoring with a REST API and web interface, built with Fast
 - Public status pages, responsive dashboard, organizations, role-based access, and API keys.
 - Docker deployment with PostgreSQL and optional HTTPS via Caddy.
 
+## Screenshots
+
+<img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800">
+
+<img src="docs/screenshots/monitor-details.png" alt="Monitor details" width="800">
+
+<img src="docs/screenshots/status-page.png" alt="Status page" width="800">
+
 ## Installation
 
 **Requirements:** Linux, Docker with Docker Compose v2, Bash, Python 3, `curl`, `openssl`, and `getent`. Docker must be installed and running.
