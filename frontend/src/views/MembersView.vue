@@ -10,6 +10,8 @@ import type { OrganizationRole } from '@/types/organization'
 import AppSelect from '@/components/AppSelect.vue'
 import type { SelectOption } from '@/types/select'
 
+import { requestConfirmation } from '@/composables/confirmation'
+
 const membersStore = useMembersStore()
 const organizationStore = useOrganizationStore()
 
@@ -18,14 +20,12 @@ const roles: OrganizationRole[] = ['owner', 'admin', 'member', 'viewer']
 const email = ref('')
 const role = ref<OrganizationRole>('member')
 
-const roleOptions:
-  SelectOption<OrganizationRole>[] =
-    roles.map((availableRole) => {
-      return {
-        value: availableRole,
-        label: formatRole(availableRole),
-      }
-    })
+const roleOptions: SelectOption<OrganizationRole>[] = roles.map((availableRole) => {
+  return {
+    value: availableRole,
+    label: formatRole(availableRole),
+  }
+})
 
 const isAdding = ref(false)
 const updatingMemberId = ref<string | null>(null)
@@ -105,25 +105,22 @@ async function handleRoleChange(
   updatingMemberId.value = member.user_id
 
   try {
-    await membersStore.updateMember(
-      member.user_id,
-      {
-        role: newRole,
-      },
-    )
+    await membersStore.updateMember(member.user_id, {
+      role: newRole,
+    })
   } catch (error) {
-    actionError.value = getApiErrorMessage(
-      error,
-      'Unable to update member role',
-    )
+    actionError.value = getApiErrorMessage(error, 'Unable to update member role')
   } finally {
     updatingMemberId.value = null
   }
 }
 
 async function handleRemoveMember(member: OrganizationMember): Promise<void> {
-  const confirmed = window.confirm(`Remove "${member.email}" from this organization?`)
-
+  const confirmed = await requestConfirmation({
+    title: 'Remove member',
+    message: `Remove "${member.email}" from this organization?`,
+    confirmLabel: 'Remove member',
+  })
   if (!confirmed) {
     return
   }
@@ -202,11 +199,7 @@ watch(
 
           <div class="form-field">
             <label for="member-role"> Role </label>
-            <AppSelect
-              id="member-role"
-              v-model="role"
-              :options="roleOptions"
-            />
+            <AppSelect id="member-role" v-model="role" :options="roleOptions" />
           </div>
         </div>
 
@@ -260,12 +253,9 @@ watch(
                 :model-value="member.role"
                 :options="roleOptions"
                 :disabled="
-                  updatingMemberId === member.user_id
-                  || removingMemberId === member.user_id
+                  updatingMemberId === member.user_id || removingMemberId === member.user_id
                 "
-                @update:model-value="
-                  handleRoleChange(member, $event)
-                "
+                @update:model-value="handleRoleChange(member, $event)"
               />
               <span v-else class="member-role" :class="`member-role--${member.role}`">
                 {{ formatRole(member.role) }}

@@ -2,7 +2,7 @@
 import axios from 'axios'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
+import { requestConfirmation } from '@/composables/confirmation'
 import { useMonitorStore } from '@/stores/monitors'
 import { useOrganizationStore } from '@/stores/organizations'
 import type { DnsRecordType, HttpMethod, Monitor, MonitorUpdate } from '@/types/monitor'
@@ -274,9 +274,11 @@ async function handleDeleteMonitor(): Promise<void> {
     return
   }
 
-  const confirmed = window.confirm(
-    `Delete monitor "${monitor.value.name}"? This action cannot be undone.`,
-  )
+  const confirmed = await requestConfirmation({
+    title: 'Delete monitor',
+    message: `Delete "${monitor.value.name}"? ` + 'This action cannot be undone.',
+    confirmLabel: 'Delete monitor',
+  })
 
   if (!confirmed) {
     return

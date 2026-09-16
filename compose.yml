@@ -75,7 +75,7 @@ services:
       - "8000"
 
     ports:
-      - "8000:8000"
+    - "127.0.0.1:8000:8000"
 
     depends_on:
       migrate:
@@ -93,6 +93,22 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /backend
+
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8080:80"
+
+    depends_on:
+      api:
+        condition: service_healthy
 
   scheduler:
     image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
@@ -166,5 +182,27 @@ services:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
 
+
+  caddy:
+    image: caddy:2
+    profiles:
+      - public
+
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+    depends_on:
+      - frontend
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

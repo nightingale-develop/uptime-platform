@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-
+import { requestConfirmation } from '@/composables/confirmation'
 import { useMaintenanceStore } from '@/stores/maintenance'
 import { useMonitorStore } from '@/stores/monitors'
 import { useOrganizationStore } from '@/stores/organizations'
@@ -148,8 +148,11 @@ async function handleCreate(): Promise<void> {
 }
 
 async function handleDelete(maintenanceWindow: MaintenanceWindow): Promise<void> {
-  const confirmed = window.confirm('Delete this maintenance window?')
-
+  const confirmed = await requestConfirmation({
+    title: 'Delete maintenance window',
+    message: 'Delete this maintenance window?',
+    confirmLabel: 'Delete window',
+  })
   if (!confirmed) {
     return
   }

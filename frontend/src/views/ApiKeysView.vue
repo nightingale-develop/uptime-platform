@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onMounted, ref, watch } from 'vue'
+import { requestConfirmation } from '@/composables/confirmation'
 
 import { useApiKeysStore } from '@/stores/api-keys'
 import { useOrganizationStore } from '@/stores/organizations'
@@ -108,7 +109,11 @@ function dismissCreatedKey(): void {
 }
 
 async function handleDelete(apiKey: ApiKey): Promise<void> {
-  const confirmed = window.confirm(`Delete API key "${apiKey.name}"?`)
+  const confirmed = await requestConfirmation({
+    title: 'Revoke API key',
+    message: `Revoke "${apiKey.name}"? ` + 'Applications using this key will lose access.',
+    confirmLabel: 'Revoke key',
+  })
 
   if (!confirmed) {
     return

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-
+import { requestConfirmation } from '@/composables/confirmation'
 import { useNotificationStore } from '@/stores/notifications'
 import { useOrganizationStore } from '@/stores/organizations'
 import type {
@@ -52,19 +52,17 @@ const canManageNotifications = computed(() => {
   return role === 'owner' || role === 'admin' || role === 'member'
 })
 
-const destinationTypeOptions:
-  SelectOption<NotificationDestinationType>[] = [
-    { value: 'webhook', label: 'Webhook' },
-    { value: 'telegram', label: 'Telegram' },
-    { value: 'email', label: 'Email' },
-  ]
+const destinationTypeOptions: SelectOption<NotificationDestinationType>[] = [
+  { value: 'webhook', label: 'Webhook' },
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'email', label: 'Email' },
+]
 
-const emailSecurityOptions:
-  SelectOption<EmailSecurity>[] = [
-    { value: 'none', label: 'None' },
-    { value: 'starttls', label: 'STARTTLS' },
-    { value: 'tls', label: 'TLS' },
-  ]
+const emailSecurityOptions: SelectOption<EmailSecurity>[] = [
+  { value: 'none', label: 'None' },
+  { value: 'starttls', label: 'STARTTLS' },
+  { value: 'tls', label: 'TLS' },
+]
 
 function clearConfigFields(): void {
   webhookUrl.value = ''
@@ -340,8 +338,11 @@ async function toggleEnabled(destination: NotificationDestination): Promise<void
 }
 
 async function handleDelete(destination: NotificationDestination): Promise<void> {
-  const confirmed = window.confirm(`Delete "${destination.name}"?`)
-
+  const confirmed = await requestConfirmation({
+    title: 'Delete notification destination',
+    message: `Delete "${destination.name}"?`,
+    confirmLabel: 'Delete destination',
+  })
   if (!confirmed) {
     return
   }
@@ -425,11 +426,11 @@ watch(
             <label for="notification-type"> Type </label>
 
             <AppSelect
-            id="notification-type"
-            v-model="destinationType"
-            :options="destinationTypeOptions"
-            :disabled="isEditing"
-          />
+              id="notification-type"
+              v-model="destinationType"
+              :options="destinationTypeOptions"
+              :disabled="isEditing"
+            />
 
             <small v-if="isEditing"> Destination type cannot be changed. </small>
           </div>
@@ -536,10 +537,10 @@ watch(
               <label for="email-security"> Security </label>
 
               <AppSelect
-              id="email-security"
-              v-model="emailSecurity"
-              :options="emailSecurityOptions"
-            />
+                id="email-security"
+                v-model="emailSecurity"
+                :options="emailSecurityOptions"
+              />
             </div>
           </div>
         </template>

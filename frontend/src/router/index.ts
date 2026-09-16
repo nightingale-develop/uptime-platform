@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AppLayout from '@/layouts/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useOrganizationStore } from '@/stores/organizations'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -116,6 +115,12 @@ const router = createRouter({
           component: () => import('@/views/ApiKeysView.vue'),
         },
       ],
+    },
+
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
     },
 
     {

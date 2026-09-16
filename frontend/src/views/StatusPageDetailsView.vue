@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
+import { requestConfirmation } from '@/composables/confirmation'
 import { useMonitorStore } from '@/stores/monitors'
 import { useOrganizationStore } from '@/stores/organizations'
 import { useStatusPageStore } from '@/stores/status-pages'
@@ -47,21 +47,20 @@ const availableMonitors = computed(() => {
   })
 })
 
-const availableMonitorOptions =
-  computed<SelectOption<string>[]>(() => {
-    return [
-      {
-        value: '',
-        label: 'Select monitor',
-      },
-      ...availableMonitors.value.map((monitor) => {
-        return {
-          value: monitor.id,
-          label: monitor.name,
-        }
-      }),
-    ]
-  })
+const availableMonitorOptions = computed<SelectOption<string>[]>(() => {
+  return [
+    {
+      value: '',
+      label: 'Select monitor',
+    },
+    ...availableMonitors.value.map((monitor) => {
+      return {
+        value: monitor.id,
+        label: monitor.name,
+      }
+    }),
+  ]
+})
 
 function getPageId(): string | null {
   const pageId = route.params.pageId
@@ -166,8 +165,11 @@ async function handleRemoveMonitor(monitor: StatusPageMonitor): Promise<void> {
 async function handleDelete(): Promise<void> {
   if (!page.value) return
 
-  const confirmed = window.confirm(`Delete "${page.value.name}"?`)
-
+  const confirmed = await requestConfirmation({
+    title: 'Delete status page',
+    message: `Delete "${page.value.name}"?`,
+    confirmLabel: 'Delete page',
+  })
   if (!confirmed) return
 
   isDeleting.value = true

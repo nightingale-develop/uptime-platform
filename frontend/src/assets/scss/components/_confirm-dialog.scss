@@ -1,0 +1,66 @@
+@use '../variables' as *;
+
+.confirm-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+
+  overflow-y: auto;
+
+  border: 1px solid $color-border;
+  border-radius: $radius-large;
+
+  background: $color-surface;
+
+  box-shadow: 0 24px 64px rgb(15 23 42 / 0.2);
+
+  &::backdrop {
+    background: rgb(15 23 42 / 0.55);
+  }
+
+  &__content {
+    padding: 24px;
+  }
+
+  h2 {
+    margin: 0 0 12px;
+
+    color: $color-heading;
+    font-size: 20px;
+  }
+
+  p {
+    margin: 0;
+
+    color: $color-muted;
+    font-size: 14px;
+    line-height: 1.6;
+
+    overflow-wrap: anywhere;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+
+    margin-top: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .confirm-dialog {
+    &__content {
+      padding: 20px;
+    }
+
+    &__actions {
+      flex-direction: column-reverse;
+
+      button {
+        width: 100%;
+        min-height: 44px;
+      }
+    }
+  }
+}
