@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import signal
 
+from uptime_platform.core.metrics import export_metrics, get_metrics
 from uptime_platform.db.session import (
     SessionFactory,
 )
@@ -23,13 +25,28 @@ async def main() -> None:
         session_factory=SessionFactory,
     )
 
-    await scheduler.run_forever()
+    loop = asyncio.get_running_loop()
+    task = asyncio.current_task()
+    stopping = False
+
+    def stop() -> None:
+        nonlocal stopping
+        if not stopping and task is not None:
+            stopping = True
+            task.cancel()
+
+    loop.add_signal_handler(signal.SIGTERM, stop)
+    try:
+        async with export_metrics(get_metrics("scheduler"), 9001):
+            await scheduler.run_forever()
+    finally:
+        loop.remove_signal_handler(signal.SIGTERM)
 
 
 def run() -> None:
     try:
         asyncio.run(main())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("scheduler stopped")
 
 

@@ -1,0 +1,35 @@
+groups:
+  - name: uptime-platform
+    rules:
+      - alert: UptimeProcessUnavailable
+        expr: up{job=~"uptime-(api|scheduler|worker)"} == 0 or absent(up{job="uptime-api"}) or absent(up{job="uptime-scheduler"}) or absent(up{job="uptime-worker"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Uptime process {{ $labels.job }} is unavailable'
+          description: 'Inspect the process logs and networking. An API scrape failure can also indicate a PostgreSQL outage.'
+      - alert: UptimeSchedulerStalled
+        expr: time() - uptime_scheduler_last_success_timestamp_seconds{job="uptime-scheduler"} > 600
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Scheduler {{ $labels.instance }} has no recent successful cycle'
+          description: 'Check database connectivity, lease persistence and scheduler errors. Adjust 600 seconds if legitimate batches take longer.'
+      - alert: UptimeNotificationFailures
+        expr: sum(increase(uptime_notification_deliveries_total{job="uptime-worker",outcome="failure"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Notification delivery attempts are failing
+          description: Inspect worker logs and destination availability. Retries count as separate attempts.
+      - alert: UptimeNotificationBacklog
+        expr: max by (stage) (uptime_notification_queue_size{job="uptime-api"}) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Notification backlog in {{ $labels.stage }}'
+          description: More than 100 items have remained queued for 10 minutes. Unprocessed deliveries include exhausted retries.

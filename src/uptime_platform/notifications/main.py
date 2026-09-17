@@ -6,6 +6,7 @@ import httpx2
 from uptime_platform.core.config import (
     get_settings,
 )
+from uptime_platform.core.metrics import export_metrics, get_metrics
 from uptime_platform.db.session import (
     SessionFactory,
 )
@@ -26,7 +27,10 @@ async def main() -> None:
 
     logger.info("notification worker started")
 
-    async with httpx2.AsyncClient() as client:
+    async with (
+        export_metrics(get_metrics("worker"), 9002),
+        httpx2.AsyncClient() as client,
+    ):
         worker = NotificationWorker(
             session_factory=SessionFactory,
             http_client=client,

@@ -91,3 +91,10 @@ class Monitor:
     recovery_threshold: int = 2
     consecutive_failures: int = 0
     consecutive_successes: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class MonitorClaim:
+    monitor: Monitor
+    token: UUID
+    expires_at: datetime

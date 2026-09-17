@@ -1,7 +1,7 @@
-from datetime import datetime
-from uuid import UUID
+from datetime import datetime, timedelta
+from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uptime_platform.monitors.entities import (
@@ -11,6 +11,7 @@ from uptime_platform.monitors.entities import (
     HttpMonitorConfig,
     IcmpMonitorConfig,
     Monitor,
+    MonitorClaim,
     MonitorConfig,
     MonitorStatus,
     MonitorType,
@@ -93,6 +94,8 @@ class SqlAlchemyMonitorRepository:
     async def get_by_id_for_update(
         self,
         monitor_id: UUID,
+        *,
+        lease_token: UUID | None = None,
     ) -> Monitor | None:
         statement = (
             select(MonitorModel)
@@ -108,7 +111,76 @@ class SqlAlchemyMonitorRepository:
         if model is None:
             return None
 
+        if lease_token is not None:
+            # Read the clock AFTER acquiring the lock, including any lock wait.
+            now = await self._session.scalar(select(func.clock_timestamp()))
+            if (
+                model.check_lease_token != lease_token
+                or model.check_lease_until is None
+                or model.check_lease_until <= now
+            ):
+                return None
+
         return self._to_entity(model)
+
+    async def claim_due(
+        self,
+        *,
+        limit: int,
+        lease_grace_seconds: float,
+        exclude_ids: set[UUID] | None = None,
+    ) -> list[MonitorClaim]:
+        """Reserve due monitors; caller must commit before starting network IO."""
+        if limit < 1 or lease_grace_seconds <= 0:
+            raise ValueError("Claim limit and lease grace must be positive")
+
+        statement = (
+            select(MonitorModel)
+            .where(
+                MonitorModel.next_check_at <= func.clock_timestamp(),
+                MonitorModel.status != MonitorStatus.PAUSED,
+                or_(
+                    MonitorModel.check_lease_until.is_(None),
+                    MonitorModel.check_lease_until <= func.clock_timestamp(),
+                ),
+            )
+            .order_by(MonitorModel.next_check_at, MonitorModel.id)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        if exclude_ids:
+            statement = statement.where(MonitorModel.id.not_in(exclude_ids))
+
+        models = (await self._session.scalars(statement)).all()
+        now = await self._session.scalar(select(func.clock_timestamp()))
+        claims = []
+        for model in models:
+            model.check_lease_token = uuid4()
+            model.check_lease_until = now + timedelta(
+                seconds=model.timeout_seconds + lease_grace_seconds,
+            )
+            claims.append(
+                MonitorClaim(
+                    monitor=self._to_entity(model),
+                    token=model.check_lease_token,
+                    expires_at=model.check_lease_until,
+                )
+            )
+        await self._session.flush()
+        return claims
+
+    async def release_check_lease(self, monitor_id: UUID, token: UUID) -> bool:
+        result = await self._session.execute(
+            update(MonitorModel)
+            .where(
+                MonitorModel.id == monitor_id,
+                MonitorModel.check_lease_token == token,
+            )
+            .values(check_lease_token=None, check_lease_until=None)
+            .returning(MonitorModel.id)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def update(
         self,

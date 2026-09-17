@@ -881,3 +881,35 @@ async def test_expired_maintenance_does_not_suppress_monitor_transition() -> Non
 
     assert len(events) == 1
     assert events[0].event_type is OutboxEventType.INCIDENT_OPENED
+
+
+@pytest.mark.parametrize("success", [True, False])
+async def test_manual_check_metrics_count_execution_once(success):
+    from uptime_platform.core.metrics import Metrics
+
+    metrics = Metrics("api")
+    monitors = InMemoryMonitorRepository()
+    monitor = make_monitor()
+    await monitors.create(monitor)
+    service = CheckService(
+        monitor_repository=monitors,
+        check_repository=InMemoryCheckRepository(),
+        incident_repository=InMemoryIncidentRepository(),
+        outbox_repository=InMemoryOutboxRepository(),
+        maintenance_repository=InMemoryMaintenanceWindowRepository(),
+        checker_factory=StubCheckerFactory(
+            StubChecker(CheckResult(success, 2, 200, None))
+        ),
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        metrics=metrics,
+    )
+    assert await service.run(uuid4()) is None
+    await service.run(monitor.id)
+    labels = {"monitor_type": "http", "outcome": "success" if success else "failure"}
+    assert metrics.registry.get_sample_value("uptime_checks_total", labels) == 1
+    assert (
+        metrics.registry.get_sample_value(
+            "uptime_check_duration_seconds_count", {"monitor_type": "http"}
+        )
+        == 1
+    )

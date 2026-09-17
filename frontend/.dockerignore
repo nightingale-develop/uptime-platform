@@ -6,3 +6,9 @@ dist
 !.env.example
 .eslintcache
 *.log
+knowledge-base
+.obsidian
+.agents
+.codex
+AGENTS.md
+CLAUDE.md

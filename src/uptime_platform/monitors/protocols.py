@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from uptime_platform.monitors.entities import Monitor
+from uptime_platform.monitors.entities import Monitor, MonitorClaim
 
 
 class MonitorRepositoryProtocol(Protocol):
@@ -42,4 +42,16 @@ class MonitorRepositoryProtocol(Protocol):
     async def get_by_id_for_update(
         self,
         monitor_id: UUID,
+        *,
+        lease_token: UUID | None = None,
     ) -> Monitor | None: ...
+
+    async def release_check_lease(self, monitor_id: UUID, token: UUID) -> bool: ...
+
+    async def claim_due(
+        self,
+        *,
+        limit: int,
+        lease_grace_seconds: float,
+        exclude_ids: set[UUID] | None = None,
+    ) -> list[MonitorClaim]: ...

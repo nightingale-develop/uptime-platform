@@ -29,3 +29,6 @@ frontend/.env
 frontend/.env.local
 
 /Caddyfile
+
+/knowledge-base/
+/.obsidian/

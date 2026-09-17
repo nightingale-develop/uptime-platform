@@ -1,6 +1,6 @@
 [project]
 name = "uptime-platform"
-version = "1.0.0"
+version = "1.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -20,6 +20,7 @@ dependencies = [
     "icmplib>=3.0.4",
     "pwdlib[argon2]>=0.3.1",
     "pyjwt>=2.13.0",
+    "prometheus-client>=0.26.0",
 ]
 
 

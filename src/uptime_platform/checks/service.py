@@ -10,6 +10,7 @@ from uptime_platform.checks.protocols import (
     CheckerFactoryProtocol,
     CheckRepositoryProtocol,
 )
+from uptime_platform.core.metrics import Metrics, get_metrics
 from uptime_platform.incidents.entities import (
     Incident,
     IncidentStatus,
@@ -46,6 +47,7 @@ class CheckService:
         checker_factory: CheckerFactoryProtocol,
         maintenance_repository: MaintenanceWindowRepositoryProtocol,
         organization_id: UUID,
+        metrics: Metrics | None = None,
     ) -> None:
         self._monitor_repository = monitor_repository
         self._check_repository = check_repository
@@ -54,6 +56,7 @@ class CheckService:
         self._checker_factory = checker_factory
         self._maintenance_repository = maintenance_repository
         self._organization_id = organization_id
+        self._metrics = metrics if metrics is not None else get_metrics("api")
 
     async def run(
         self,
@@ -67,11 +70,12 @@ class CheckService:
         if monitor is None:
             return None
 
-        checker = self._checker_factory.create(monitor)
-
-        result = await checker.check(
-            timeout_seconds=monitor.timeout_seconds,
-        )
+        with self._metrics.check(monitor.monitor_type.value) as observation:
+            checker = self._checker_factory.create(monitor)
+            result = await checker.check(
+                timeout_seconds=monitor.timeout_seconds,
+            )
+            observation.success = result.success
 
         return await self.record(
             monitor_id=monitor.id,
@@ -100,8 +104,15 @@ class CheckService:
         self,
         monitor_id: UUID,
         result: CheckResult,
+        *,
+        lease_token: UUID | None = None,
     ) -> Check | None:
-        monitor = await self._monitor_repository.get_by_id_for_update(monitor_id)
+        if lease_token is None:
+            monitor = await self._monitor_repository.get_by_id_for_update(monitor_id)
+        else:
+            monitor = await self._monitor_repository.get_by_id_for_update(
+                monitor_id, lease_token=lease_token
+            )
 
         if monitor is None:
             return None
@@ -126,6 +137,10 @@ class CheckService:
 
             await self._monitor_repository.update(updated_monitor)
 
+            if lease_token is not None:
+                await self._monitor_repository.release_check_lease(
+                    monitor_id, lease_token
+                )
             return check
 
         updated_monitor = apply_check_result(
@@ -150,6 +165,8 @@ class CheckService:
             checked_at=check.checked_at,
         )
 
+        if lease_token is not None:
+            await self._monitor_repository.release_check_lease(monitor_id, lease_token)
         return check
 
     async def _handle_incident_transition(

@@ -126,3 +126,48 @@ async def test_retry_increments_existing_attempt_count() -> None:
     )
 
     assert result.attempts == 3
+
+
+async def test_delivery_metrics_count_retry_and_success_once():
+    from uptime_platform.core.metrics import Metrics
+
+    metrics = Metrics("worker")
+    service = NotificationService(metrics=metrics)
+    event = make_event()
+    failed = await service.process(
+        make_delivery(event), event, FailingNotificationChannel()
+    )
+    successful = await service.process(failed, event, StubNotificationChannel())
+    assert successful.attempts == 2
+    assert (
+        metrics.registry.get_sample_value(
+            "uptime_notification_deliveries_total", {"outcome": "failure"}
+        )
+        == 1
+    )
+    assert (
+        metrics.registry.get_sample_value(
+            "uptime_notification_deliveries_total", {"outcome": "success"}
+        )
+        == 1
+    )
+
+
+async def test_unexpected_delivery_error_is_counted_and_propagated():
+    from unittest.mock import AsyncMock
+
+    from uptime_platform.core.metrics import Metrics
+
+    metrics = Metrics("worker")
+    service = NotificationService(metrics=metrics)
+    event = make_event()
+    channel = StubNotificationChannel()
+    channel.send = AsyncMock(side_effect=RuntimeError("unexpected"))
+    with pytest.raises(RuntimeError):
+        await service.process(make_delivery(event), event, channel)
+    assert (
+        metrics.registry.get_sample_value(
+            "uptime_notification_deliveries_total", {"outcome": "failure"}
+        )
+        == 1
+    )

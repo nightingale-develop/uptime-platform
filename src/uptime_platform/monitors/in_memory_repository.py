@@ -1,14 +1,16 @@
-from datetime import datetime
-from uuid import UUID
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 from uptime_platform.monitors.entities import (
     Monitor,
+    MonitorClaim,
     MonitorStatus,
 )
 
 
 class InMemoryMonitorRepository:
     def __init__(self) -> None:
+        self._claims: dict[UUID, MonitorClaim] = {}
         self._monitors: dict[
             UUID,
             Monitor,
@@ -50,8 +52,62 @@ class InMemoryMonitorRepository:
     async def get_by_id_for_update(
         self,
         monitor_id: UUID,
+        *,
+        lease_token: UUID | None = None,
     ) -> Monitor | None:
+        if lease_token is not None:
+            claim = self._claims.get(monitor_id)
+            if (
+                claim is None
+                or claim.token != lease_token
+                or claim.expires_at <= datetime.now(UTC)
+            ):
+                return None
         return self._monitors.get(monitor_id)
+
+    async def claim_due(
+        self,
+        *,
+        limit: int,
+        lease_grace_seconds: float,
+        exclude_ids: set[UUID] | None = None,
+    ) -> list[MonitorClaim]:
+        if limit < 1 or lease_grace_seconds <= 0:
+            raise ValueError("Claim limit and lease grace must be positive")
+        now = datetime.now(UTC)
+        due = sorted(
+            (
+                monitor
+                for monitor in self._monitors.values()
+                if monitor.next_check_at <= now
+                and monitor.status is not MonitorStatus.PAUSED
+                and monitor.id not in (exclude_ids or set())
+                and (
+                    monitor.id not in self._claims
+                    or self._claims[monitor.id].expires_at <= now
+                )
+            ),
+            key=lambda monitor: (monitor.next_check_at, monitor.id),
+        )
+        claims = [
+            MonitorClaim(
+                monitor=monitor,
+                token=uuid4(),
+                expires_at=now
+                + timedelta(seconds=monitor.timeout_seconds + lease_grace_seconds),
+            )
+            for monitor in due[:limit]
+        ]
+        for claim in claims:
+            self._claims[claim.monitor.id] = claim
+        return claims
+
+    async def release_check_lease(self, monitor_id: UUID, token: UUID) -> bool:
+        claim = self._claims.get(monitor_id)
+        if claim is None or claim.token != token:
+            return False
+        del self._claims[monitor_id]
+        return True
 
     async def update(
         self,
@@ -78,6 +134,7 @@ class InMemoryMonitorRepository:
             return False
 
         del self._monitors[monitor_id]
+        self._claims.pop(monitor_id, None)
 
         return True
 

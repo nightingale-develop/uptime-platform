@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from uptime_platform.core.metrics import Metrics, get_metrics
 from uptime_platform.notifications.entities import (
     NotificationDelivery,
 )
@@ -26,7 +27,9 @@ class NotificationService:
         self,
         retry_base_seconds: int = 5,
         retry_max_seconds: int = 300,
+        metrics: Metrics | None = None,
     ) -> None:
+        self._metrics = metrics if metrics is not None else get_metrics("worker")
         self._retry_base_seconds = retry_base_seconds
         self._retry_max_seconds = retry_max_seconds
 
@@ -42,6 +45,7 @@ class NotificationService:
             await channel.send(event)
 
         except NotificationDeliveryError as exc:
+            self._metrics.deliveries.labels("failure").inc()
             now = datetime.now(UTC)
 
             return replace(
@@ -52,6 +56,11 @@ class NotificationService:
                 locked_until=None,
             )
 
+        except BaseException:
+            self._metrics.deliveries.labels("failure").inc()
+            raise
+
+        self._metrics.deliveries.labels("success").inc()
         return replace(
             delivery,
             processed_at=datetime.now(UTC),

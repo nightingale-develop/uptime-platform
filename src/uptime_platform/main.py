@@ -10,6 +10,7 @@ from uptime_platform.auth.router import (
 from uptime_platform.checks.router import (
     router as checks_router,
 )
+from uptime_platform.core.metrics_router import router as metrics_router
 from uptime_platform.core.web_config import (
     get_web_settings,
 )
@@ -40,7 +41,7 @@ from uptime_platform.status_pages.router import (
 
 app = FastAPI(
     title="Uptime Platform API",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 web_settings = get_web_settings()
@@ -75,3 +76,5 @@ app.include_router(statistics_router)
 app.include_router(organizations_router)
 app.include_router(api_keys_router)
 app.include_router(organization_members_router)
+
+app.include_router(metrics_router)

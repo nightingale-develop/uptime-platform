@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     String,
@@ -20,6 +21,13 @@ from uptime_platform.monitors.entities import (
 
 class MonitorModel(Base):
     __tablename__ = "monitors"
+
+    __table_args__ = (
+        CheckConstraint(
+            "(check_lease_token IS NULL) = (check_lease_until IS NULL)",
+            name="ck_monitors_check_lease_pair",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
@@ -87,6 +95,9 @@ class MonitorModel(Base):
         nullable=False,
         index=True,
     )
+
+    check_lease_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    check_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     failure_threshold: Mapped[int] = mapped_column(
         nullable=False,

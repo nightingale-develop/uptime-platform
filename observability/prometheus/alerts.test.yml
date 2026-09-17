@@ -1,0 +1,85 @@
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="uptime-api",instance="api:8000"}'
+        values: '1+0x20'
+      - series: 'up{job="uptime-scheduler",instance="scheduler:9001"}'
+        values: '1+0x20'
+      - series: 'up{job="uptime-worker",instance="worker:9002"}'
+        values: '1+0x20'
+      - series: 'uptime_scheduler_last_success_timestamp_seconds{job="uptime-scheduler",instance="scheduler:9001"}'
+        values: '0+60x20'
+      - series: 'uptime_notification_deliveries_total{job="uptime-worker",outcome="failure"}'
+        values: '0+0x20'
+      - series: 'uptime_notification_queue_size{job="uptime-api",stage="delivery"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: UptimeProcessUnavailable
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: UptimeSchedulerStalled
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: UptimeNotificationFailures
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: UptimeNotificationBacklog
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'up{job="uptime-api"}'
+        values: '1+0x20'
+      - series: 'up{job="uptime-scheduler"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: UptimeProcessUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: uptime-worker
+              severity: critical
+            exp_annotations:
+              summary: Uptime process uptime-worker is unavailable
+              description: Inspect the process logs and networking. An API scrape failure can also indicate a PostgreSQL outage.
+  - interval: 1m
+    input_series:
+      - series: 'uptime_scheduler_last_success_timestamp_seconds{job="uptime-scheduler",instance="scheduler:9001"}'
+        values: '0+0x20'
+      - series: 'uptime_notification_deliveries_total{job="uptime-worker",outcome="failure"}'
+        values: '0+1x20'
+      - series: 'uptime_notification_queue_size{job="uptime-api",instance="api-1",stage="delivery"}'
+        values: '101+0x20'
+      - series: 'uptime_notification_queue_size{job="uptime-api",instance="api-2",stage="delivery"}'
+        values: '101+0x20'
+    alert_rule_test:
+      - eval_time: 13m
+        alertname: UptimeSchedulerStalled
+        exp_alerts:
+          - exp_labels:
+              job: uptime-scheduler
+              instance: scheduler:9001
+              severity: critical
+            exp_annotations:
+              summary: Scheduler scheduler:9001 has no recent successful cycle
+              description: Check database connectivity, lease persistence and scheduler errors. Adjust 600 seconds if legitimate batches take longer.
+      - eval_time: 13m
+        alertname: UptimeNotificationFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Notification delivery attempts are failing
+              description: Inspect worker logs and destination availability. Retries count as separate attempts.
+      - eval_time: 13m
+        alertname: UptimeNotificationBacklog
+        exp_alerts:
+          - exp_labels:
+              stage: delivery
+              severity: warning
+            exp_annotations:
+              summary: Notification backlog in delivery
+              description: More than 100 items have remained queued for 10 minutes. Unprocessed deliveries include exhausted retries.
