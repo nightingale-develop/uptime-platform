@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -55,15 +54,22 @@ class NotificationDeliveryRepositoryProtocol(Protocol):
 
     async def claim_pending(
         self,
+        *,
         limit: int,
         max_attempts: int,
-        now: datetime,
-        locked_until: datetime,
+        lease_seconds: float,
+        exclude_ids: set[UUID] | None = None,
     ) -> list[NotificationDelivery]: ...
+
+    async def remaining_lease_seconds(
+        self, delivery_id: UUID, lease_token: UUID
+    ) -> float | None: ...
 
     async def update(
         self,
         delivery: NotificationDelivery,
+        *,
+        lease_token: UUID,
     ) -> NotificationDelivery | None: ...
 
     async def create_if_missing(
@@ -74,5 +80,5 @@ class NotificationDeliveryRepositoryProtocol(Protocol):
     async def release_lock(
         self,
         delivery_id: UUID,
-        locked_until: datetime,
+        lease_token: UUID,
     ) -> bool: ...

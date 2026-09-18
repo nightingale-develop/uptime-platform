@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 umask 077
 
-# Standalone installer: the Compose manifest is embedded below.
-# Docker and Docker Compose v2 must already be installed.
+RELEASE_VERSION=1.2.0
+RELEASE_BASE=https://raw.githubusercontent.com/nightingale-develop/uptime-platform
 INSTALL_DIR=/opt/uptime-platform
 PROJECT_NAME=uptime-platform
 MANAGED_MARKER='# Managed by Uptime Platform install.sh'
@@ -24,7 +24,7 @@ docker compose version >/dev/null 2>&1 || fail 'Docker Compose v2 is required.'
 [[ ! -e "$INSTALL_DIR" || -d "$INSTALL_DIR" ]] || fail "$INSTALL_DIR is not a directory."
 
 # Never adopt somebody else's configuration or rotate an existing DB password.
-for filename in .env compose.yml Caddyfile; do
+for filename in .env compose.yml Caddyfile update.sh observability; do
   [[ ! -L "$INSTALL_DIR/$filename" ]] || fail "Refusing symlink $INSTALL_DIR/$filename"
 done
 if [[ -f "$INSTALL_DIR/.env" ]]; then
@@ -39,6 +39,17 @@ else
   if docker volume inspect "${PROJECT_NAME}_postgres_data" >/dev/null 2>&1; then
     fail 'An existing PostgreSQL volume was found without installer-managed .env. Refusing to generate new database credentials.'
   fi
+fi
+
+if (( existing_install )); then
+  update_script="$(mktemp)"
+  trap 'rm -f -- "$update_script"' EXIT
+  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+    --connect-timeout 15 --max-time 120 \
+    "$RELEASE_BASE/v$RELEASE_VERSION/update.sh" -o "$update_script"
+  bash -n "$update_script"
+  bash "$update_script" --version "$RELEASE_VERSION" --install-dir "$INSTALL_DIR"
+  exit 0
 fi
 
 classify_host() {
@@ -182,164 +193,34 @@ read -r -p 'Continue? [y/N]: ' confirmation || fail 'Input canceled.'
 mkdir -p -- "$INSTALL_DIR"
 chmod 755 "$INSTALL_DIR"
 
-# Write the complete image-only Compose manifest from this one install.sh.
-tmp_compose="$(mktemp "$INSTALL_DIR/compose.yml.XXXXXXXX")"
-cat > "$tmp_compose" <<'COMPOSE_YAML'
-# Managed by Uptime Platform install.sh
-# Application images use :latest; this file never builds sources.
-name: uptime-platform
-
-services:
-  postgres:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-uptime}
-      POSTGRES_USER: ${POSTGRES_USER:-uptime}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  migrate:
-    image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
-    restart: "no"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
-      NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-    command: ["alembic", "upgrade", "head"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  api:
-    image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
-    restart: unless-stopped
-    cap_add:
-      - NET_RAW
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
-      NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      JWT_ACCESS_TOKEN_TTL_MINUTES: ${JWT_ACCESS_TOKEN_TTL_MINUTES:-60}
-      API_KEY_HASH_SECRET: ${API_KEY_HASH_SECRET:?API_KEY_HASH_SECRET is required}
-      REFRESH_TOKEN_HASH_SECRET: ${REFRESH_TOKEN_HASH_SECRET:?REFRESH_TOKEN_HASH_SECRET is required}
-      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
-      REFRESH_COOKIE_NAME: ${REFRESH_COOKIE_NAME:-refresh_token}
-      REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-false}
-      REFRESH_COOKIE_SAMESITE: ${REFRESH_COOKIE_SAMESITE:-lax}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
-    command:
-      - fastapi
-      - run
-      - src/uptime_platform/main.py
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  frontend:
-    image: ${FRONTEND_IMAGE:-sashastudent/uptime-platform-frontend:latest}
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8080:80"
-    depends_on:
-      api:
-        condition: service_healthy
-
-  scheduler:
-    image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
-    restart: unless-stopped
-    cap_add:
-      - NET_RAW
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
-      NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-    command: ["python", "-m", "uptime_platform.scheduler.main"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
-  notification-worker:
-    image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
-      NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
-    command: ["python", "-m", "uptime_platform.notifications.main"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
-  postgres-test:
-    image: postgres:17-alpine
-    profiles: ["test"]
-    environment:
-      POSTGRES_DB: uptime_test
-      POSTGRES_USER: uptime
-      POSTGRES_PASSWORD: uptime
-    ports:
-      - "127.0.0.1:5433:5432"
-    tmpfs:
-      - /var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U uptime -d uptime_test"]
-      interval: 2s
-      timeout: 5s
-      retries: 10
-
-  mailpit:
-    image: axllent/mailpit:latest
-    profiles: ["mail"]
-    ports:
-      - "127.0.0.1:1025:1025"
-      - "127.0.0.1:8025:8025"
-
-  caddy:
-    image: caddy:2
-    profiles: ["public"]
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      frontend:
-        condition: service_started
-
-volumes:
-  postgres_data:
-  caddy_data:
-  caddy_config:
-COMPOSE_YAML
-if [[ -f "$INSTALL_DIR/compose.yml" ]] && cmp -s "$tmp_compose" "$INSTALL_DIR/compose.yml"; then
-  rm -f "$tmp_compose"
-else
-  mv -f "$tmp_compose" "$INSTALL_DIR/compose.yml"
-fi
+deployment_stage="$(mktemp -d "$INSTALL_DIR/.install.XXXXXXXX")"
+trap 'rm -rf -- "$deployment_stage"' EXIT
+release_files=(
+  compose.yml update.sh
+  observability/prometheus/prometheus.yml
+  observability/prometheus/alerts.yml
+  observability/prometheus/alerts.test.yml
+  observability/grafana/provisioning/datasources/prometheus.yml
+  observability/grafana/provisioning/dashboards/uptime.yml
+  observability/grafana/dashboards/uptime-platform.json
+)
+for file in "${release_files[@]}"; do
+  mkdir -p -- "$deployment_stage/$(dirname "$file")"
+  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+    --connect-timeout 15 --max-time 120 \
+    "$RELEASE_BASE/v$RELEASE_VERSION/$file" -o "$deployment_stage/$file"
+done
+bash -n "$deployment_stage/update.sh"
+{ printf '%s\n' "$MANAGED_MARKER"; cat "$deployment_stage/compose.yml"; } > "$INSTALL_DIR/compose.yml"
 chmod 644 "$INSTALL_DIR/compose.yml"
+find "$deployment_stage/observability" -type d -exec chmod 755 {} +
+find "$deployment_stage/observability" -type f -exec chmod 644 {} +
+if [[ -d "$INSTALL_DIR/observability" ]]; then
+  mv "$INSTALL_DIR/observability" "$deployment_stage/previous-observability"
+fi
+mv "$deployment_stage/observability" "$INSTALL_DIR/observability"
+mv "$deployment_stage/update.sh" "$INSTALL_DIR/update.sh"
+chmod 755 "$INSTALL_DIR/update.sh"
 
 # Secrets are created once; losing .env while keeping the volume is not recoverable
 # by simply generating a new password.
@@ -360,8 +241,8 @@ if (( ! existing_install )); then
     fi
     printf 'REFRESH_COOKIE_SAMESITE=lax\n'
     printf 'CORS_ALLOWED_ORIGINS=%s\n' "$app_url"
-    printf 'APP_IMAGE=sashastudent/uptime-platform:latest\n'
-    printf 'FRONTEND_IMAGE=sashastudent/uptime-platform-frontend:latest\n'
+    printf 'APP_IMAGE=sashastudent/uptime-platform:%s\n' "$RELEASE_VERSION"
+    printf 'FRONTEND_IMAGE=sashastudent/uptime-platform-frontend:%s\n' "$RELEASE_VERSION"
   } > "$tmp_env"
   mv -f "$tmp_env" "$INSTALL_DIR/.env"
 fi
@@ -399,17 +280,16 @@ else
   docker compose --profile public config --quiet || fail 'Invalid Compose configuration.'
 fi
 
-printf '\n[1/5] Pulling latest application and dependency images...\n'
+printf '\n[1/5] Pulling release application and dependency images...\n'
 if [[ "$host_kind" == local ]]; then
   docker compose pull --policy always
 else
   docker compose --profile public pull --policy always
 fi
 
-# Detect an outdated/incorrectly published :latest image before touching the database.
 docker compose run --rm -T --no-deps api \
   python -m uptime_platform.cli --help >/dev/null || \
-  fail 'Backend :latest image is missing the bootstrap CLI. Publish the correct image first.'
+  fail 'Backend release image is missing the bootstrap CLI. Publish the correct image first.'
 
 printf '[2/5] Starting PostgreSQL, migrations and API...\n'
 docker compose up -d --no-build --wait api

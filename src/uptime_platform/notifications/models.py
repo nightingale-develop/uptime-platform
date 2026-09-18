@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -127,7 +128,13 @@ class NotificationDeliveryModel(Base):
         nullable=True,
     )
 
+    lease_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+
     __table_args__ = (
+        CheckConstraint(
+            "lease_token IS NULL OR locked_until IS NOT NULL",
+            name="ck_notification_delivery_lease_expiry",
+        ),
         UniqueConstraint(
             "event_id",
             "destination_id",

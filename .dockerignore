@@ -23,3 +23,6 @@ tests/
 /.codex/
 /AGENTS.md
 /CLAUDE.md
+/backups/
+/.update.*
+/.install.*

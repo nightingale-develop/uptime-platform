@@ -53,6 +53,11 @@ class Metrics:
                 registry=self.registry,
             )
         if role == "worker":
+            self.worker_success = Gauge(
+                "uptime_notification_worker_last_success_timestamp_seconds",
+                "Unix timestamp of the last fully successful notification worker cycle.",
+                registry=self.registry,
+            )
             self.deliveries = Counter(
                 "uptime_notification_deliveries_total",
                 "Notification send attempts.",

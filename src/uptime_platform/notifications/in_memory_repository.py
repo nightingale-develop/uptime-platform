@@ -1,6 +1,6 @@
 from dataclasses import replace
-from datetime import datetime
-from uuid import UUID
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 from uptime_platform.notifications.entities import (
     NotificationDelivery,
@@ -115,23 +115,29 @@ class InMemoryNotificationDeliveryRepository:
 
     async def claim_pending(
         self,
+        *,
         limit: int,
         max_attempts: int,
-        now: datetime,
-        locked_until: datetime,
+        lease_seconds: float,
+        exclude_ids: set[UUID] | None = None,
     ) -> list[NotificationDelivery]:
+        if limit < 1 or max_attempts < 1 or lease_seconds <= 0:
+            raise ValueError("Claim limits and lease duration must be positive")
+        now = datetime.now(UTC)
+        locked_until = now + timedelta(seconds=lease_seconds)
         deliveries = [
             delivery
             for delivery in self._deliveries.values()
             if (
-                delivery.processed_at is None
+                delivery.id not in (exclude_ids or set())
+                and delivery.processed_at is None
                 and delivery.attempts < max_attempts
                 and delivery.next_attempt_at <= now
                 and (delivery.locked_until is None or delivery.locked_until <= now)
             )
         ]
 
-        deliveries.sort(key=lambda delivery: delivery.next_attempt_at)
+        deliveries.sort(key=lambda delivery: (delivery.next_attempt_at, delivery.id))
 
         deliveries = deliveries[:limit]
 
@@ -141,6 +147,7 @@ class InMemoryNotificationDeliveryRepository:
             claimed_delivery = replace(
                 delivery,
                 locked_until=locked_until,
+                lease_token=uuid4(),
             )
 
             self._deliveries[delivery.id] = claimed_delivery
@@ -152,13 +159,30 @@ class InMemoryNotificationDeliveryRepository:
     async def update(
         self,
         delivery: NotificationDelivery,
+        *,
+        lease_token: UUID,
     ) -> NotificationDelivery | None:
-        if delivery.id not in self._deliveries:
+        if await self.remaining_lease_seconds(delivery.id, lease_token) is None:
             return None
 
-        self._deliveries[delivery.id] = delivery
+        updated = replace(delivery, locked_until=None, lease_token=None)
+        self._deliveries[delivery.id] = updated
+        return updated
 
-        return delivery
+    async def remaining_lease_seconds(
+        self, delivery_id: UUID, lease_token: UUID
+    ) -> float | None:
+        delivery = self._deliveries.get(delivery_id)
+        if (
+            delivery is None
+            or lease_token is None
+            or delivery.lease_token != lease_token
+            or delivery.locked_until is None
+            or delivery.processed_at is not None
+        ):
+            return None
+        remaining = (delivery.locked_until - datetime.now(UTC)).total_seconds()
+        return remaining if remaining > 0 else None
 
     async def create_if_missing(
         self,
@@ -180,19 +204,20 @@ class InMemoryNotificationDeliveryRepository:
     async def release_lock(
         self,
         delivery_id: UUID,
-        locked_until: datetime,
+        lease_token: UUID,
     ) -> bool:
         delivery = self._deliveries.get(delivery_id)
 
         if delivery is None:
             return False
 
-        if delivery.locked_until != locked_until:
+        if lease_token is None or delivery.lease_token != lease_token:
             return False
 
         self._deliveries[delivery_id] = replace(
             delivery,
             locked_until=None,
+            lease_token=None,
         )
 
         return True

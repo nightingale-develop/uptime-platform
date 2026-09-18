@@ -171,3 +171,36 @@ async def test_unexpected_delivery_error_is_counted_and_propagated():
         )
         == 1
     )
+
+
+async def test_total_send_timeout_schedules_retry_and_counts_failure():
+    import asyncio
+
+    from uptime_platform.core.metrics import Metrics
+
+    class BlockedChannel:
+        async def send(self, event):
+            await asyncio.Event().wait()
+
+    event = make_event()
+    metrics = Metrics("worker")
+    service = NotificationService(metrics=metrics)
+    updated = await service.process(
+        make_delivery(event), event, BlockedChannel(), timeout_seconds=0.01
+    )
+    assert updated.attempts == 1
+    assert updated.processed_at is None
+    assert updated.next_attempt_at > datetime.now(UTC)
+    assert "total timeout" in updated.last_error
+    assert (
+        metrics.registry.get_sample_value(
+            "uptime_notification_deliveries_total", {"outcome": "failure"}
+        )
+        == 1
+    )
+    assert (
+        metrics.registry.get_sample_value(
+            "uptime_notification_deliveries_total", {"outcome": "success"}
+        )
+        == 0
+    )

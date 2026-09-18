@@ -1,7 +1,7 @@
-from datetime import datetime
-from uuid import UUID
+from datetime import timedelta
+from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -249,6 +249,7 @@ class SqlAlchemyNotificationDeliveryRepository:
             last_error=delivery.last_error,
             next_attempt_at=delivery.next_attempt_at,
             locked_until=delivery.locked_until,
+            lease_token=delivery.lease_token,
         )
 
         self._session.add(model)
@@ -274,59 +275,95 @@ class SqlAlchemyNotificationDeliveryRepository:
 
     async def claim_pending(
         self,
+        *,
         limit: int,
         max_attempts: int,
-        now: datetime,
-        locked_until: datetime,
+        lease_seconds: float,
+        exclude_ids: set[UUID] | None = None,
     ) -> list[NotificationDelivery]:
+        if limit < 1 or max_attempts < 1 or lease_seconds <= 0:
+            raise ValueError("Claim limits and lease duration must be positive")
         statement = (
             select(NotificationDeliveryModel)
             .where(
                 NotificationDeliveryModel.processed_at.is_(None),
                 NotificationDeliveryModel.attempts < max_attempts,
-                NotificationDeliveryModel.next_attempt_at <= now,
+                NotificationDeliveryModel.next_attempt_at <= func.clock_timestamp(),
                 or_(
                     NotificationDeliveryModel.locked_until.is_(None),
-                    NotificationDeliveryModel.locked_until <= now,
+                    NotificationDeliveryModel.locked_until <= func.clock_timestamp(),
                 ),
             )
-            .order_by(NotificationDeliveryModel.next_attempt_at)
+            .order_by(
+                NotificationDeliveryModel.next_attempt_at, NotificationDeliveryModel.id
+            )
             .limit(limit)
             .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
         )
-
-        result = await self._session.execute(statement)
-
-        models = result.scalars().all()
-
-        for model in models:
-            model.locked_until = locked_until
-
-        await self._session.flush()
-
+        if exclude_ids:
+            statement = statement.where(
+                NotificationDeliveryModel.id.not_in(exclude_ids)
+            )
+        models = (await self._session.scalars(statement)).all()
+        if models:
+            now = await self._session.scalar(select(func.clock_timestamp()))
+            for model in models:
+                model.locked_until = now + timedelta(seconds=lease_seconds)
+                model.lease_token = uuid4()
+            await self._session.flush()
         return [self._to_entity(model) for model in models]
+
+    async def remaining_lease_seconds(
+        self, delivery_id: UUID, lease_token: UUID
+    ) -> float | None:
+        if lease_token is None:
+            return None
+        value = await self._session.scalar(
+            select(
+                func.extract(
+                    "epoch",
+                    NotificationDeliveryModel.locked_until - func.clock_timestamp(),
+                )
+            ).where(
+                NotificationDeliveryModel.id == delivery_id,
+                NotificationDeliveryModel.lease_token == lease_token,
+                NotificationDeliveryModel.processed_at.is_(None),
+            )
+        )
+        return float(value) if value is not None and value > 0 else None
 
     async def update(
         self,
         delivery: NotificationDelivery,
+        *,
+        lease_token: UUID,
     ) -> NotificationDelivery | None:
-        model = await self._session.get(
-            NotificationDeliveryModel,
-            delivery.id,
+        if lease_token is None:
+            return None
+        model = await self._session.scalar(
+            select(NotificationDeliveryModel)
+            .where(NotificationDeliveryModel.id == delivery.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
-
         if model is None:
             return None
-
+        now = await self._session.scalar(select(func.clock_timestamp()))
+        if (
+            model.lease_token != lease_token
+            or model.locked_until is None
+            or model.locked_until <= now
+            or model.processed_at is not None
+        ):
+            return None
         model.processed_at = delivery.processed_at
         model.attempts = delivery.attempts
         model.last_error = delivery.last_error
         model.next_attempt_at = delivery.next_attempt_at
-        model.locked_until = delivery.locked_until
-
+        model.locked_until = None
+        model.lease_token = None
         await self._session.flush()
-        await self._session.refresh(model)
-
         return self._to_entity(model)
 
     async def create_if_missing(
@@ -345,6 +382,7 @@ class SqlAlchemyNotificationDeliveryRepository:
                 last_error=delivery.last_error,
                 next_attempt_at=delivery.next_attempt_at,
                 locked_until=delivery.locked_until,
+                lease_token=delivery.lease_token,
             )
             .on_conflict_do_nothing(
                 constraint=("uq_notification_delivery_event_destination")
@@ -361,16 +399,19 @@ class SqlAlchemyNotificationDeliveryRepository:
     async def release_lock(
         self,
         delivery_id: UUID,
-        locked_until: datetime,
+        lease_token: UUID,
     ) -> bool:
+        if lease_token is None:
+            return False
         statement = (
             update(NotificationDeliveryModel)
             .where(
                 NotificationDeliveryModel.id == delivery_id,
-                NotificationDeliveryModel.locked_until == locked_until,
+                NotificationDeliveryModel.lease_token == lease_token,
             )
             .values(
                 locked_until=None,
+                lease_token=None,
             )
             .returning(NotificationDeliveryModel.id)
         )
@@ -395,4 +436,5 @@ class SqlAlchemyNotificationDeliveryRepository:
             last_error=model.last_error,
             next_attempt_at=model.next_attempt_at,
             locked_until=model.locked_until,
+            lease_token=model.lease_token,
         )

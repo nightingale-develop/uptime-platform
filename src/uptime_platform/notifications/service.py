@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -38,22 +39,28 @@ class NotificationService:
         delivery: NotificationDelivery,
         event: OutboxEvent,
         channel: NotificationChannelProtocol,
+        *,
+        timeout_seconds: float | None = None,
     ) -> NotificationDelivery:
         attempts = delivery.attempts + 1
 
         try:
-            await channel.send(event)
+            async with asyncio.timeout(timeout_seconds):
+                await channel.send(event)
 
-        except NotificationDeliveryError as exc:
+        except (NotificationDeliveryError, TimeoutError) as exc:
             self._metrics.deliveries.labels("failure").inc()
             now = datetime.now(UTC)
 
             return replace(
                 delivery,
                 attempts=attempts,
-                last_error=str(exc)[:2000],
+                last_error=(
+                    str(exc) or "Notification delivery exceeded its total timeout"
+                )[:2000],
                 next_attempt_at=(now + timedelta(seconds=self._retry_delay(attempts))),
                 locked_until=None,
+                lease_token=None,
             )
 
         except BaseException:
@@ -67,6 +74,7 @@ class NotificationService:
             attempts=attempts,
             last_error=None,
             locked_until=None,
+            lease_token=None,
         )
 
     def _retry_delay(

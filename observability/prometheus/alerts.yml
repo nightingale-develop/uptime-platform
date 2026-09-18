@@ -33,3 +33,11 @@ groups:
         annotations:
           summary: 'Notification backlog in {{ $labels.stage }}'
           description: More than 100 items have remained queued for 10 minutes. Unprocessed deliveries include exhausted retries.
+      - alert: UptimeNotificationWorkerStalled
+        expr: time() - uptime_notification_worker_last_success_timestamp_seconds{job="uptime-worker"} > 600
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Notification worker {{ $labels.instance }} has no recent successful cycle'
+          description: Check database connectivity, delivery persistence and worker logs. Adjust 600 seconds for longer batches.

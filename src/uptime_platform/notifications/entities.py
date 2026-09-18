@@ -66,3 +66,4 @@ class NotificationDelivery:
     last_error: str | None
     next_attempt_at: datetime
     locked_until: datetime | None
+    lease_token: UUID | None = None

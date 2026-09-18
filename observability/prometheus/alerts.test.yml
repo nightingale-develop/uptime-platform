@@ -83,3 +83,26 @@ tests:
             exp_annotations:
               summary: Notification backlog in delivery
               description: More than 100 items have remained queued for 10 minutes. Unprocessed deliveries include exhausted retries.
+  - interval: 1m
+    input_series:
+      - series: 'uptime_notification_worker_last_success_timestamp_seconds{job="uptime-worker",instance="worker:9002"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 13m
+        alertname: UptimeNotificationWorkerStalled
+        exp_alerts:
+          - exp_labels:
+              job: uptime-worker
+              instance: worker:9002
+              severity: critical
+            exp_annotations:
+              summary: Notification worker worker:9002 has no recent successful cycle
+              description: Check database connectivity, delivery persistence and worker logs. Adjust 600 seconds for longer batches.
+  - interval: 1m
+    input_series:
+      - series: 'uptime_notification_worker_last_success_timestamp_seconds{job="uptime-worker",instance="worker:9002"}'
+        values: '0+60x20'
+    alert_rule_test:
+      - eval_time: 13m
+        alertname: UptimeNotificationWorkerStalled
+        exp_alerts: []

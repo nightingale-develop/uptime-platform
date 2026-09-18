@@ -122,3 +122,26 @@ async def test_webhook_http_error_raises_delivery_error() -> None:
 
         with pytest.raises(NotificationDeliveryError):
             await channel.send(event)
+
+
+async def test_webhook_retries_keep_stable_event_id():
+    event = make_event()
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx2.Response(status_code=503 if len(requests) == 1 else 204)
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        channel = WebhookNotificationChannel(
+            client, "https://example.com/webhook", "test-secret", 5
+        )
+        with pytest.raises(NotificationDeliveryError):
+            await channel.send(event)
+        await channel.send(event)
+    assert [request.headers["X-Uptime-Event-ID"] for request in requests] == [
+        str(event.id)
+    ] * 2
+    assert all(
+        json.loads(request.content)["id"] == str(event.id) for request in requests
+    )

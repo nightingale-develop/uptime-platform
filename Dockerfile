@@ -40,8 +40,8 @@ COPY --from=builder /app/alembic.ini /app/alembic.ini
 COPY --from=builder /app/migrations /app/migrations
 
 LABEL org.opencontainers.image.title="Uptime Platform"
-LABEL org.opencontainers.image.version="1.1.0"
+LABEL org.opencontainers.image.version="1.2.0"
 LABEL org.opencontainers.image.description="Self-hosted uptime monitoring and incident management platform"
-LABEL org.opencontainers.image.source="https://github.com/SashaSolovey1/uptime-platform"
+LABEL org.opencontainers.image.source="https://github.com/nightingale-develop/uptime-platform"
 
 CMD ["fastapi", "run", "src/uptime_platform/main.py", "--host", "0.0.0.0", "--port", "8000"]
