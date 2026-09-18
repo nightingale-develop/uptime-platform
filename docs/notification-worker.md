@@ -33,7 +33,7 @@ Webhooks already carry a stable `X-Uptime-Event-ID` header and the same ID in th
 
 ## Upgrade
 
-Back up PostgreSQL and deployment configuration. Stop all old notification workers sharing the database before applying migration `92c7e8a31d40`, including replicas outside the local Compose project. For a complete backend upgrade, stop API and scheduler processes as well, apply `alembic upgrade head` using the new image, and recreate services with that image. See the [installer deployment update procedure](../README.md#updating-an-installsh-deployment).
+Back up PostgreSQL and deployment configuration. Stop all old notification workers sharing the database before applying migration `92c7e8a31d40`, including replicas outside the local Compose project. For a complete backend upgrade, stop API and scheduler processes as well, apply `alembic upgrade head` using the new image, and recreate services with that image. See the [deployment update procedure](updating.md).
 
 Use matching backend/frontend `1.2.0` images for this change; `1.1.0` images do not include it. Rolling back across schema changes requires a planned application/database rollback; changing only the image tag is not a general rollback strategy.
 

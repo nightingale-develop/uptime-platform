@@ -10,6 +10,7 @@ __pycache__/
 
 # Environment variables
 .env
+/.env.before-*
 
 # Testing
 .pytest_cache/
