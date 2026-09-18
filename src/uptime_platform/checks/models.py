@@ -65,6 +65,7 @@ class CheckModel(Base):
     )
 
     __table_args__ = (
+        Index("ix_checks_checked_at", "checked_at"),
         Index(
             "ix_checks_monitor_id_checked_at",
             "monitor_id",

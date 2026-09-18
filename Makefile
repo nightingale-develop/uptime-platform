@@ -50,19 +50,19 @@ test-migrate: test-db-up
 
 
 test-unit:
-	uv run pytest tests/unit -v
+	set -a; . ./.env.test; set +a; uv run pytest tests/unit -v
 
 
 test-api:
-	uv run pytest tests/api -v
+	set -a; . ./.env.test; set +a; uv run pytest tests/api -v
 
 
 test-integration: test-migrate
-	uv run pytest tests/integration -v
+	set -a; . ./.env.test; set +a; uv run pytest tests/integration -v
 
 
 test: test-migrate
-	uv run pytest -v
+	set -a; . ./.env.test; set +a; uv run pytest -v
 
 
 test-fresh:

@@ -7,9 +7,11 @@ unset APP_IMAGE FRONTEND_IMAGE FRONTEND_PORT POSTGRES_DB POSTGRES_USER POSTGRES_
 unset JWT_SECRET JWT_ACCESS_TOKEN_TTL_MINUTES API_KEY_HASH_SECRET REFRESH_TOKEN_HASH_SECRET
 unset REFRESH_TOKEN_TTL_DAYS REFRESH_COOKIE_NAME REFRESH_COOKIE_SECURE REFRESH_COOKIE_SAMESITE
 unset CORS_ALLOWED_ORIGINS NOTIFICATION_TIMEOUT_SECONDS UPTIME_HOST
+unset RETENTION_ENABLED RETENTION_CHECKS_DAYS RETENTION_INCIDENTS_DAYS
+unset RETENTION_NOTIFICATIONS_DAYS RETENTION_INTERVAL_SECONDS RETENTION_BATCH_SIZE
 
-RELEASE_VERSION=1.2.0
-UPDATER_REVISION=4
+RELEASE_VERSION=1.2.1
+UPDATER_REVISION=5
 RELEASE_BASE=https://raw.githubusercontent.com/nightingale-develop/uptime-platform
 INSTALL_DIR=/opt/uptime-platform
 LOCK_FILE=/run/lock/uptime-platform.lock
@@ -44,7 +46,7 @@ while (($#)); do
   esac
 done
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'Use a release number such as 1.2.0, not latest.'
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'Use a release number such as 1.2.1, not latest.'
 for executable in docker curl flock mktemp awk cp find grep; do
   command -v "$executable" >/dev/null 2>&1 || fail "Missing dependency: $executable"
 done

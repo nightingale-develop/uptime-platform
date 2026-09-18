@@ -61,5 +61,7 @@ make test
 ```
 
 The test suite uses `.env.test` and a disposable PostgreSQL service on port 5433.
-`make test` starts that database and applies migrations. Do not point tests at a
-production database. Use `make format` to apply Ruff formatting and fixes.
+The Make test targets load `.env.test` for both migrations and pytest;
+`make test` starts that database and applies migrations. For a direct pytest run,
+use `uv run --env-file .env.test pytest`. Do not point tests at a production
+database. Use `make format` to apply Ruff formatting and fixes.

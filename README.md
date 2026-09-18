@@ -1,6 +1,6 @@
 # Uptime Platform
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 [![Docker Pulls](https://img.shields.io/docker/pulls/sashastudent/uptime-platform)](https://hub.docker.com/r/sashastudent/uptime-platform)
 
 Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
@@ -40,18 +40,12 @@ API documentation: `<application URL>/backend/docs`.
 Installation and updates always use `/opt/uptime-platform`:
 
 ```bash
-sudo bash /opt/uptime-platform/update.sh --version 1.2.0
+sudo bash /opt/uptime-platform/update.sh --version 1.2.1
 ```
 
-For a completely fresh installation:
-
-```bash
-sudo bash install.sh --clean
-```
-
-Clean reinstall deletes the old database, monitoring data, certificates and
-installation files after explicit confirmation. Normal updates preserve data and
-create backups. See [installation and updates](docs/updating.md).
+Updates preserve configuration and data volumes and create a database backup.
+See [installation and updates](docs/updating.md) for details and clean reinstall.
+History is automatically removed after its [retention period](docs/retention.md).
 
 Images: [backend](https://hub.docker.com/r/sashastudent/uptime-platform) and
 [frontend](https://hub.docker.com/r/sashastudent/uptime-platform-frontend).
@@ -96,6 +90,7 @@ sudo docker compose --profile observability stop grafana prometheus
 - [Local development and Make commands](docs/development.md)
 - [Scheduler coordination](docs/scheduler.md)
 - [Notification worker coordination](docs/notification-worker.md)
+- [Data retention and cleanup](docs/retention.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)

@@ -55,6 +55,11 @@ class IncidentModel(Base):
 
     __table_args__ = (
         Index(
+            "ix_incidents_resolved_at",
+            "resolved_at",
+            postgresql_where=text("status = 'resolved'"),
+        ),
+        Index(
             "ix_incidents_monitor_id_status",
             "monitor_id",
             "status",
