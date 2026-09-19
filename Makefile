@@ -24,6 +24,13 @@
 	logs-notification-worker \
 	docker-rebuild
 
+.PHONY: release
+VERSION ?= patch
+export VERSION
+
+release:
+	bash scripts/release.sh "$$VERSION"
+
 
 dev-up:
 	docker compose up -d --wait postgres

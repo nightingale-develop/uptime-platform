@@ -1,0 +1,149 @@
+name: Release
+run-name: Release ${{ inputs.request_id || github.run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: patch, minor, major or an explicit X.Y.Z
+        required: true
+        default: patch
+        type: string
+      expected_sha:
+        description: Expected main commit (set by make release)
+        required: false
+        type: string
+      request_id:
+        description: Local command correlation ID
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      commit: ${{ steps.prepare.outputs.commit }}
+      backend: ${{ steps.images.outputs.backend }}
+      frontend: ${{ steps.images.outputs.frontend }}
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: uptime
+          POSTGRES_PASSWORD: uptime
+          POSTGRES_DB: uptime_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U uptime -d uptime_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate request and prepare version commit
+        id: prepare
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_TOKEN" || { echo 'Configure DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets.' >&2; exit 1; }
+          test -z "$EXPECTED_SHA" || test "$EXPECTED_SHA" = "$GITHUB_SHA"
+          git fetch origin main --tags
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA" || { echo 'main moved; start a new release.' >&2; exit 1; }
+          version=$(python scripts/version.py "$REQUESTED_VERSION")
+          if git show-ref --verify --quiet "refs/tags/v$version"; then
+            echo "Tag v$version already exists. Use Re-run failed jobs to resume finalization." >&2
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pyproject.toml uv.lock src/uptime_platform/main.py Dockerfile frontend/Dockerfile frontend/package.json frontend/package-lock.json README.md
+          git commit -m "chore(release): v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/check
+      - uses: ./.github/actions/build-images
+        with:
+          backend: sashastudent/uptime-platform:${{ steps.prepare.outputs.version }}
+          frontend: sashastudent/uptime-platform-frontend:${{ steps.prepare.outputs.version }}
+          version: ${{ steps.prepare.outputs.version }}
+          revision: ${{ steps.prepare.outputs.commit }}
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish versioned images
+        id: images
+        env:
+          RELEASE_VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          git diff --exit-code
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA" || { echo 'main moved; start a new release.' >&2; exit 1; }
+          backend="sashastudent/uptime-platform:$RELEASE_VERSION"
+          frontend="sashastudent/uptime-platform-frontend:$RELEASE_VERSION"
+          docker push "$backend"
+          docker push "$frontend"
+          backend_digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$backend")
+          frontend_digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$frontend")
+          echo "backend=${backend_digest##*@}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${frontend_digest##*@}" >> "$GITHUB_OUTPUT"
+      - name: Push version commit and tag together
+        env:
+          RELEASE_VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          git tag -a "v$RELEASE_VERSION" -m "Release $RELEASE_VERSION"
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/v$RELEASE_VERSION"
+  finalize:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_VERSION: ${{ needs.publish.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.publish.outputs.commit }}
+      BACKEND_DIGEST: ${{ needs.publish.outputs.backend }}
+      FRONTEND_DIGEST: ${{ needs.publish.outputs.frontend }}
+    steps:
+      - name: Check release is still current
+        run: |
+          test "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" = "$RELEASE_COMMIT" || { echo 'main moved; inspect before promoting this release.' >&2; exit 1; }
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Promote both tested images to latest
+        run: |
+          docker buildx imagetools create --tag sashastudent/uptime-platform:latest "sashastudent/uptime-platform@$BACKEND_DIGEST"
+          docker buildx imagetools create --tag sashastudent/uptime-platform-frontend:latest "sashastudent/uptime-platform-frontend@$FRONTEND_DIGEST"
+      - name: Publish GitHub Release last
+        run: |
+          latest_ref=$(gh api "repos/$GH_REPO/git/matching-refs/tags/latest" --jq '.[] | select(.ref == "refs/tags/latest") | .object.sha')
+          if [[ -n "$latest_ref" ]]; then
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/latest" -f sha="$RELEASE_COMMIT" -F force=true
+          else
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref=refs/tags/latest -f sha="$RELEASE_COMMIT"
+          fi
+          if gh release view "v$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release edit "v$RELEASE_VERSION" --draft=false --latest
+          else
+            gh release create "v$RELEASE_VERSION" --verify-tag --title "v$RELEASE_VERSION" --generate-notes --latest
+          fi
+          printf 'Published [%s](https://github.com/%s/releases/tag/v%s)\n' "$RELEASE_VERSION" "$GH_REPO" "$RELEASE_VERSION" >> "$GITHUB_STEP_SUMMARY"

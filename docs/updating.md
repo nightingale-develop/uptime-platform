@@ -6,7 +6,7 @@ For running from source, see [local development](development.md).
 ## Install
 
 ```bash
-curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/main/install.sh -o install.sh
+curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/refs/tags/latest/install.sh -o install.sh
 sudo bash install.sh
 ```
 
@@ -16,12 +16,20 @@ Configuration is saved in `/opt/uptime-platform/.env`.
 ## Update
 
 ```bash
-curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/main/update.sh -o update.sh
+curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/refs/tags/latest/update.sh -o update.sh
+sudo bash update.sh
+```
+
+Without `--version`, the updater selects the latest stable version.
+
+To update to a specific published version:
+
+```bash
 sudo bash update.sh --version 1.3.1
 ```
 
-Replace `1.3.1` with the desired published release. Add `--observability` to enable
-Prometheus and Grafana; existing monitoring stays enabled.
+Add `--observability` to enable Prometheus and Grafana; existing monitoring stays
+enabled.
 
 The updater backs up configuration and the database to
 `/opt/uptime-platform/backups/`, applies migrations and restarts the application.

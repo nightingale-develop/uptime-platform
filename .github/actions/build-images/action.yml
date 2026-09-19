@@ -1,0 +1,46 @@
+name: Build and smoke-test images
+description: Build both linux/amd64 images and test the resulting Compose deployment
+inputs:
+  backend:
+    description: Backend image tag
+    required: true
+  frontend:
+    description: Frontend image tag
+    required: true
+  version:
+    description: Expected application version
+    required: true
+  revision:
+    description: Source commit
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@v4
+    - name: Build backend
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        load: true
+        platforms: linux/amd64
+        tags: ${{ inputs.backend }}
+        labels: org.opencontainers.image.revision=${{ inputs.revision }}
+        cache-from: type=gha,scope=backend
+        cache-to: type=gha,mode=max,scope=backend
+    - name: Build frontend
+      uses: docker/build-push-action@v7
+      with:
+        context: ./frontend
+        load: true
+        platforms: linux/amd64
+        tags: ${{ inputs.frontend }}
+        labels: org.opencontainers.image.revision=${{ inputs.revision }}
+        cache-from: type=gha,scope=frontend
+        cache-to: type=gha,mode=max,scope=frontend
+    - name: Smoke-test built images
+      shell: bash
+      env:
+        BACKEND_IMAGE: ${{ inputs.backend }}
+        FRONTEND_IMAGE: ${{ inputs.frontend }}
+        RELEASE_VERSION: ${{ inputs.version }}
+      run: bash scripts/smoke-images.sh "$BACKEND_IMAGE" "$FRONTEND_IMAGE" "$RELEASE_VERSION"

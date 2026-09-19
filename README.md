@@ -1,7 +1,6 @@
 # Uptime Platform
 
 ![Version](https://img.shields.io/badge/version-1.3.1-blue)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sashastudent/uptime-platform)](https://hub.docker.com/r/sashastudent/uptime-platform)
 
 Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
 
@@ -16,7 +15,7 @@ Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
 Requires Linux, Docker Compose v2, Bash, Python 3, curl, openssl, getent and flock.
 
 ```bash
-curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/main/install.sh -o install.sh
+curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/refs/tags/latest/install.sh -o install.sh
 sudo bash install.sh
 ```
 
@@ -40,16 +39,16 @@ API documentation: `<application URL>/backend/docs`.
 Installation and updates always use `/opt/uptime-platform`:
 
 ```bash
-sudo bash /opt/uptime-platform/update.sh --version 1.3.1
+curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/refs/tags/latest/update.sh -o update.sh
+sudo bash update.sh
 ```
+
+The updater selects the latest stable version. To update to a specific
+version, use `sudo bash update.sh --version 1.3.1`.
 
 Updates preserve configuration and data volumes and create a database backup.
 See [installation and updates](docs/updating.md) for details and clean reinstall.
 History is automatically removed after its [retention period](docs/retention.md).
-
-Images: [backend](https://hub.docker.com/r/sashastudent/uptime-platform) and
-[frontend](https://hub.docker.com/r/sashastudent/uptime-platform-frontend).
-Use matching version tags; `latest` follows the latest published release.
 
 ## Check the application
 

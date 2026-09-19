@@ -1,0 +1,46 @@
+name: Check application
+description: Install locked dependencies, lint, migrate and test against PostgreSQL
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+    - uses: astral-sh/setup-uv@v7
+      with:
+        version: '0.12.7'
+        enable-cache: true
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - name: Install dependencies
+      shell: bash
+      run: |
+        uv sync --locked
+        npm ci --prefix frontend
+    - name: Check backend and scripts
+      shell: bash
+      run: |
+        uv run --locked python scripts/version.py
+        uv run --locked ruff check .
+        uv run --locked ruff format --check .
+        bash -n install.sh update.sh scripts/release.sh scripts/smoke-images.sh
+    - name: Migrations and tests
+      shell: bash
+      run: |
+        set -a
+        . scripts/ci.env
+        set +a
+        uv run --locked alembic upgrade head
+        uv run --locked alembic check
+        uv run --locked pytest -q
+    - name: Check and build frontend
+      shell: bash
+      working-directory: frontend
+      run: |
+        npx --no-install oxlint .
+        npx --no-install eslint .
+        npx --no-install prettier --check src/
+        npm run build

@@ -10,12 +10,11 @@ unset CORS_ALLOWED_ORIGINS NOTIFICATION_TIMEOUT_SECONDS UPTIME_HOST
 unset RETENTION_ENABLED RETENTION_CHECKS_DAYS RETENTION_INCIDENTS_DAYS
 unset RETENTION_NOTIFICATIONS_DAYS RETENTION_INTERVAL_SECONDS RETENTION_BATCH_SIZE
 
-RELEASE_VERSION=1.3.1
-UPDATER_REVISION=5
+UPDATER_REVISION=7
 RELEASE_BASE=https://raw.githubusercontent.com/nightingale-develop/uptime-platform
 INSTALL_DIR=/opt/uptime-platform
 LOCK_FILE=/run/lock/uptime-platform.lock
-VERSION=$RELEASE_VERSION
+VERSION=latest
 OBSERVABILITY=0
 MANAGED_MARKER='# Managed by Uptime Platform install.sh'
 stage=
@@ -31,6 +30,7 @@ while (($#)); do
   case "$1" in
     --version)
       (($# >= 2)) || fail '--version needs a release number.'
+      [[ "$2" =~ ^(latest|[0-9]+\.[0-9]+\.[0-9]+)$ ]] || fail '--version needs latest or a release number such as 1.3.1.'
       VERSION=$2
       shift 2
       ;;
@@ -40,16 +40,19 @@ while (($#)); do
       ;;
     --help)
       printf 'Usage: sudo bash update.sh [--version X.Y.Z] [--observability]\n'
+      printf 'Defaults to the latest Git tag and Docker images. Use --version to select a specific release.\n'
       exit 0
       ;;
     *) fail "Unknown argument: $1" ;;
   esac
 done
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'Use a release number such as 1.3.1, not latest.'
 for executable in docker curl flock mktemp awk cp find grep; do
   command -v "$executable" >/dev/null 2>&1 || fail "Missing dependency: $executable"
 done
+RELEASE_REF=refs/tags/latest
+[[ "$VERSION" == latest ]] || RELEASE_REF="refs/tags/v$VERSION"
+printf 'Selected release: %s\n' "$VERSION"
 [[ -d "$INSTALL_DIR" && ! -L "$INSTALL_DIR" ]] || fail 'Installation directory is missing or is a symlink.'
 [[ -w "$INSTALL_DIR" ]] || fail 'Installation directory is not writable. Run with sudo.'
 INSTALL_DIR=$(cd -- "$INSTALL_DIR" && pwd -P)
@@ -121,7 +124,8 @@ for file in "${files[@]}"; do
   mkdir -p -- "$stage/$(dirname "$file")"
   curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
     --connect-timeout 15 --max-time 120 \
-    "$RELEASE_BASE/v$VERSION/$file" -o "$stage/$file"
+    "$RELEASE_BASE/$RELEASE_REF/$file" -o "$stage/$file" || \
+    fail "Could not download $file for $VERSION. Installation files were not changed."
 done
 bash -n "$stage/update.sh"
 downloaded_revision=$(awk -F= '/^UPDATER_REVISION=/ { print $2; exit }' "$stage/update.sh")
@@ -199,4 +203,4 @@ fi
 current "${profiles[@]}" ps -a
 stopped=0
 printf '\nUpdated to %s. Backup: %s\n' "$VERSION" "$backup"
-printf 'For the next release: sudo bash /opt/uptime-platform/update.sh --version X.Y.Z\n'
+printf 'For the next release: sudo bash /opt/uptime-platform/update.sh\n'
