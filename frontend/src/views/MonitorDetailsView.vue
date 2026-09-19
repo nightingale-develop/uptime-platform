@@ -591,6 +591,19 @@ watch(statisticsPeriod, async () => {
           </div>
         </div>
 
+        <p
+          v-if="statistics?.is_partial && !statisticsError"
+          class="statistics__coverage"
+          role="status"
+        >
+          <template v-if="statistics.first_check_at && statistics.last_check_at">
+            Incomplete history for this period. Figures use available checks from
+            {{ new Date(statistics.first_check_at).toLocaleString() }} to
+            {{ new Date(statistics.last_check_at).toLocaleString() }}.
+          </template>
+          <template v-else>No check data is available for this period.</template>
+        </p>
+
         <p v-if="statisticsLoading && !statistics" class="statistics__message">
           Loading statistics...
         </p>
@@ -601,7 +614,7 @@ watch(statisticsPeriod, async () => {
 
         <div v-else-if="statistics" class="statistics__cards">
           <div class="statistics-card">
-            <span>Uptime</span>
+            <span>{{ statistics.is_partial ? 'Uptime (available checks)' : 'Uptime' }}</span>
 
             <strong>
               {{

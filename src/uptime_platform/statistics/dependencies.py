@@ -9,6 +9,7 @@ from uptime_platform.auth.dependencies import (
 from uptime_platform.auth.entities import (
     OrganizationContext,
 )
+from uptime_platform.core.config import Settings, get_settings
 from uptime_platform.db.session import get_db_session
 from uptime_platform.monitors.sqlalchemy_repository import (
     SqlAlchemyMonitorRepository,
@@ -30,9 +31,13 @@ def get_statistics_service(
         OrganizationContext,
         Depends(get_organization_context),
     ],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> StatisticsService:
     return StatisticsService(
         repository=SqlAlchemyStatisticsRepository(session),
         monitor_repository=SqlAlchemyMonitorRepository(session),
         organization_id=context.organization.id,
+        retention_checks_days=(
+            settings.retention_checks_days if settings.retention_enabled else None
+        ),
     )

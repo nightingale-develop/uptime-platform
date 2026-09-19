@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class StatisticsPeriod(StrEnum):
@@ -55,3 +55,19 @@ class MonitorStatisticsResponse(BaseModel):
 
     uptime_percentage: float | None
     average_response_time_ms: float | None
+    history_available_from: datetime | None = Field(
+        description="Oldest remaining check for this monitor, across all periods."
+    )
+    first_check_at: datetime | None = Field(
+        description="First check included in this result; null when there are none."
+    )
+    last_check_at: datetime | None = Field(
+        description="Last check included in this result; null when there are none."
+    )
+    is_partial: bool = Field(
+        description=(
+            "True when the period exceeds known history or the retention window, "
+            "extends into the future, or has no checks. Figures use surviving checks; "
+            "false does not guarantee uninterrupted monitoring within the period."
+        )
+    )

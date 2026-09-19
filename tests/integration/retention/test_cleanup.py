@@ -11,6 +11,7 @@ from uptime_platform.incidents.entities import IncidentStatus
 from uptime_platform.incidents.models import IncidentModel
 from uptime_platform.monitors.entities import MonitorType
 from uptime_platform.monitors.models import MonitorModel
+from uptime_platform.monitors.sqlalchemy_repository import SqlAlchemyMonitorRepository
 from uptime_platform.notifications.entities import NotificationDestinationType
 from uptime_platform.notifications.models import (
     NotificationDeliveryModel,
@@ -21,6 +22,10 @@ from uptime_platform.outbox.entities import OutboxEventType
 from uptime_platform.outbox.models import OutboxEventModel
 from uptime_platform.retention.repository import RetentionRepository
 from uptime_platform.retention.service import RetentionService
+from uptime_platform.statistics.service import StatisticsService
+from uptime_platform.statistics.sqlalchemy_repository import (
+    SqlAlchemyStatisticsRepository,
+)
 
 pytestmark = pytest.mark.anyio
 NOW = datetime(2000, 6, 1, tzinfo=UTC)
@@ -47,6 +52,7 @@ async def records(session_factory):
                     name="Monitor",
                     monitor_type=MonitorType.HTTP,
                     config={"url": "https://example.com"},
+                    created_at=NOW - timedelta(days=365),
                     next_check_at=NOW,
                 ),
                 NotificationDestinationModel(
@@ -75,7 +81,7 @@ async def records(session_factory):
             if kind == "check":
                 row = CheckModel(
                     monitor_id=monitor_id,
-                    success=True,
+                    success=kwargs.pop("success", True),
                     response_time_ms=1,
                     checked_at=at,
                     **kwargs,
@@ -323,3 +329,74 @@ async def test_cleanup_skips_rows_locked_by_another_transaction(
         async with asyncio.timeout(2):
             assert (await cleanup(session_factory))["checks"] == 0
     assert (await cleanup(session_factory))["checks"] == 1
+
+
+async def test_statistics_warns_after_old_failures_are_deleted(
+    session_factory, records
+):
+    start = NOW - timedelta(days=90)
+    old = await records("check", start, success=False)
+    await records("check", NOW - timedelta(days=1))
+    async with session_factory() as session:
+        monitor_id = (await session.get(CheckModel, old)).monitor_id
+        monitor = await session.get(MonitorModel, monitor_id)
+        organization_id = monitor.organization_id
+
+    async def statistics(starts_at=start, ends_at=NOW):
+        async with session_factory() as session:
+            service = StatisticsService(
+                SqlAlchemyStatisticsRepository(session),
+                SqlAlchemyMonitorRepository(session),
+                organization_id,
+            )
+            return await service.get_monitor_statistics(
+                monitor_id, starts_at=starts_at, ends_at=ends_at
+            )
+
+    before = await statistics()
+    assert before.uptime_percentage == 50.0
+    assert before.is_partial is False
+    assert (await cleanup(session_factory))["checks"] == 1
+
+    after = await statistics()
+    assert after.uptime_percentage == 100.0
+    assert after.is_partial is True
+    assert after.total_checks == 1
+    assert after.starts_at == start
+    assert after.history_available_from == NOW - timedelta(days=1)
+    assert after.first_check_at == after.last_check_at == NOW - timedelta(days=1)
+
+    expired = await statistics(start, NOW - timedelta(days=31))
+    assert expired.is_partial is True
+    assert expired.total_checks == 0
+    assert expired.uptime_percentage is None
+    assert expired.first_check_at is None
+    assert expired.last_check_at is None
+
+
+async def test_statistics_bounds_are_scoped_to_monitor_and_requested_range(
+    session_factory, records
+):
+    old = await records("check", NOW - timedelta(days=60))
+    first = NOW - timedelta(days=3)
+    last = NOW - timedelta(days=1)
+    await records("check", first)
+    await records("check", last, success=False)
+    await records("check", NOW)
+    async with session_factory() as session:
+        monitor_id = (await session.get(CheckModel, old)).monitor_id
+        repository = SqlAlchemyStatisticsRepository(session)
+        result = await repository.get_monitor_statistics(
+            monitor_id, NOW - timedelta(days=7), NOW
+        )
+        assert result.total_checks == 2
+        assert result.uptime_percentage == 50.0
+        assert result.history_available_from == NOW - timedelta(days=60)
+        assert result.first_check_at == first
+        assert result.last_check_at == last
+
+        empty = await repository.get_monitor_statistics(uuid4(), first, NOW)
+        assert empty.total_checks == 0
+        assert empty.history_available_from is None
+        assert empty.first_check_at is None
+        assert empty.last_check_at is None

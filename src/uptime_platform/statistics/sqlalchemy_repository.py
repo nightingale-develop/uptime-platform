@@ -23,6 +23,14 @@ class SqlAlchemyStatisticsRepository:
         starts_at: datetime,
         ends_at: datetime,
     ) -> MonitorStatistics:
+        oldest_check = (
+            select(CheckModel.checked_at)
+            .where(CheckModel.monitor_id == monitor_id)
+            .order_by(CheckModel.checked_at)
+            .limit(1)
+            .correlate(None)
+            .scalar_subquery()
+        )
         statement = select(
             func.count(CheckModel.id),
             func.sum(
@@ -43,6 +51,9 @@ class SqlAlchemyStatisticsRepository:
                     else_=None,
                 )
             ),
+            oldest_check,
+            func.min(CheckModel.checked_at),
+            func.max(CheckModel.checked_at),
         ).where(
             CheckModel.monitor_id == monitor_id,
             CheckModel.checked_at >= starts_at,
@@ -79,4 +90,7 @@ class SqlAlchemyStatisticsRepository:
             failed_checks=failed_checks,
             uptime_percentage=uptime_percentage,
             average_response_time_ms=(average_response_time_ms),
+            history_available_from=row[3],
+            first_check_at=row[4],
+            last_check_at=row[5],
         )

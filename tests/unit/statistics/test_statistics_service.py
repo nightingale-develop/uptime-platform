@@ -1,4 +1,6 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -191,3 +193,74 @@ async def test_default_statistics_period_is_24_hours() -> None:
     duration = statistics_repository.ends_at - statistics_repository.starts_at
 
     assert duration == timedelta(hours=24)
+
+
+@pytest.mark.parametrize(
+    ("history_days", "retention_days", "range_days", "expected_partial"),
+    [
+        (30, 30, 90, True),
+        (30, 30, 7, False),
+        (90, 7, 30, True),
+        (100, None, 90, False),
+        (30, None, 90, True),
+        (30, 90, 90, True),
+        (30, 30, 30, False),
+        (None, 30, 7, True),
+    ],
+)
+async def test_statistics_reports_available_history(
+    monkeypatch, history_days, retention_days, range_days, expected_partial
+):
+    now = datetime(2026, 6, 1, tzinfo=UTC)
+    clock = Mock(wraps=datetime)
+    clock.now.return_value = now
+    monkeypatch.setattr("uptime_platform.statistics.service.datetime", clock)
+    monitor = replace(make_monitor(), created_at=now - timedelta(days=365))
+    monitors = InMemoryMonitorRepository()
+    await monitors.create(monitor)
+    starts_at = now - timedelta(days=range_days)
+    available_from = (
+        now - timedelta(days=history_days) if history_days is not None else None
+    )
+    statistics = MonitorStatistics(
+        monitor_id=monitor.id,
+        starts_at=starts_at,
+        ends_at=now,
+        total_checks=1 if available_from else 0,
+        successful_checks=1 if available_from else 0,
+        failed_checks=0,
+        uptime_percentage=100.0 if available_from else None,
+        average_response_time_ms=1.0 if available_from else None,
+        history_available_from=available_from,
+        first_check_at=now if available_from else None,
+        last_check_at=now if available_from else None,
+    )
+    repository = Mock()
+    repository.get_monitor_statistics = AsyncMock(return_value=statistics)
+    service = StatisticsService(
+        repository,
+        monitors,
+        monitor.organization_id,
+        retention_checks_days=retention_days,
+    )
+
+    result = await service.get_monitor_statistics(
+        monitor.id, starts_at=starts_at, ends_at=now
+    )
+
+    assert result.is_partial is expected_partial
+    assert result.starts_at == starts_at
+    assert result.ends_at == now
+    assert result.history_available_from == available_from
+    assert result.uptime_percentage == statistics.uptime_percentage
+
+
+async def test_other_organizations_statistics_are_not_read():
+    monitor = make_monitor(organization_id=uuid4())
+    monitors = InMemoryMonitorRepository()
+    await monitors.create(monitor)
+    repository = Mock()
+    service = StatisticsService(repository, monitors, DEFAULT_ORGANIZATION_ID)
+
+    assert await service.get_monitor_statistics(monitor.id) is None
+    repository.get_monitor_statistics.assert_not_called()

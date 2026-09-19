@@ -145,4 +145,8 @@ export interface MonitorStatistics {
   failed_checks: number
   uptime_percentage: number | null
   average_response_time_ms: number | null
+  history_available_from: string | null
+  first_check_at: string | null
+  last_check_at: string | null
+  is_partial: boolean
 }

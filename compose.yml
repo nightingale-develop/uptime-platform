@@ -35,6 +35,8 @@ services:
     cap_add:
       - NET_RAW
     environment:
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
+      RETENTION_CHECKS_DAYS: ${RETENTION_CHECKS_DAYS:-30}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
       NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}

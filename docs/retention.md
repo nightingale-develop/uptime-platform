@@ -12,6 +12,17 @@ Open incidents, pending notifications and deliveries still being processed are
 kept. Monitors and their current status are unchanged. Deleted history disappears
 from charts and statistics.
 
+Statistics use the checks that remain, not the deleted history. When a requested
+period exceeds the retention window or the available history, the dashboard
+shows an incomplete-history notice and the dates of the checks used. Increasing
+retention or disabling cleanup does not restore deleted records.
+
+The statistics API returns `is_partial`, `history_available_from` (the oldest
+remaining check), and `first_check_at` / `last_check_at` for the requested period.
+No checks means null check dates and uptime, with `is_partial=true`. The flag is
+conservative while cleanup catches up; it does not detect every monitoring gap
+inside the available history. Custom ranges up to 90 days remain supported.
+
 ## Settings
 
 To change the defaults, edit `/opt/uptime-platform/.env`:
@@ -26,11 +37,11 @@ RETENTION_BATCH_SIZE=1000
 ```
 
 Set `RETENTION_ENABLED=false` to disable cleanup. Days, interval and batch size
-must be positive integers. Apply changes by recreating the scheduler:
+must be positive integers. Apply changes to both cleanup and statistics:
 
 ```bash
 cd /opt/uptime-platform
-sudo docker compose up -d --no-deps --force-recreate scheduler
+sudo docker compose up -d --no-deps --force-recreate api scheduler
 ```
 
 Cleanup runs at scheduler startup, then pauses between passes (60 seconds by

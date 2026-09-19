@@ -70,4 +70,8 @@ async def get_monitor_statistics(
         failed_checks=statistics.failed_checks,
         uptime_percentage=(statistics.uptime_percentage),
         average_response_time_ms=(statistics.average_response_time_ms),
+        history_available_from=statistics.history_available_from,
+        first_check_at=statistics.first_check_at,
+        last_check_at=statistics.last_check_at,
+        is_partial=statistics.is_partial,
     )
