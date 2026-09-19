@@ -1,6 +1,6 @@
 # Uptime Platform
 
-![Version](https://img.shields.io/badge/version-1.2.1-blue)
+![Version](https://img.shields.io/badge/version-1.3.1-blue)
 [![Docker Pulls](https://img.shields.io/docker/pulls/sashastudent/uptime-platform)](https://hub.docker.com/r/sashastudent/uptime-platform)
 
 Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
@@ -40,7 +40,7 @@ API documentation: `<application URL>/backend/docs`.
 Installation and updates always use `/opt/uptime-platform`:
 
 ```bash
-sudo bash /opt/uptime-platform/update.sh --version 1.2.1
+sudo bash /opt/uptime-platform/update.sh --version 1.3.1
 ```
 
 Updates preserve configuration and data volumes and create a database backup.

@@ -17,10 +17,10 @@ Configuration is saved in `/opt/uptime-platform/.env`.
 
 ```bash
 curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/main/update.sh -o update.sh
-sudo bash update.sh --version 1.2.1
+sudo bash update.sh --version 1.3.1
 ```
 
-Replace `1.2.1` with the desired published release. Add `--observability` to enable
+Replace `1.3.1` with the desired published release. Add `--observability` to enable
 Prometheus and Grafana; existing monitoring stays enabled.
 
 The updater backs up configuration and the database to
