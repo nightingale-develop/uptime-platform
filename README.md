@@ -1,6 +1,6 @@
 # Uptime Platform
 
-![Version](https://img.shields.io/badge/version-1.3.2-blue)
+![Version](https://img.shields.io/badge/version-1.3.3-blue)
 
 Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
 
