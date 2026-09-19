@@ -126,31 +126,7 @@ else
   printf 'Ports 80 and 443 must be reachable.\n'
   [[ "$host_kind" != ip ]] || printf 'IP mode uses a private Caddy CA; clients must trust it.\n'
 fi
-while true; do
-  read -r -p 'Owner email: ' admin_email || fail 'Input canceled.'
-  [[ -n "${admin_email//[[:space:]]/}" ]] && break
-done
-while true; do
-  read -r -p 'Organization name (1-100 characters): ' organization || fail 'Input canceled.'
-  [[ -n "${organization//[[:space:]]/}" && ${#organization} -le 100 ]] && break
-done
-while true; do
-  read -r -s -p 'Owner password: ' admin_password || fail 'Input canceled.'
-  printf '\n'
-
-  if [[ -z "$admin_password" ]]; then
-    printf 'Password cannot be empty.\n'
-    continue
-  fi
-
-  read -r -s -p 'Confirm password: ' confirmation || fail 'Input canceled.'
-  printf '\n'
-
-  [[ "$admin_password" == "$confirmation" ]] && break
-  printf 'Passwords do not match.\n'
-done
-unset confirmation
-printf '\nURL: %s\nOwner: %s\n' "$app_url" "$admin_email"
+printf '\nURL: %s\n' "$app_url"
 if ((CLEAN)); then
   printf 'CLEAN INSTALL deletes all uptime-platform containers, volumes, networks and %s, including its backups. Other Docker projects and your source checkout are preserved.\n' "$INSTALL_DIR"
   read -r -p 'Confirm clean installation (CONFIRM): ' confirmation || fail 'Input canceled.'
@@ -212,7 +188,7 @@ staged() {
 staged config --quiet
 printf '\nDownloading images before changing the existing installation...\n'
 staged pull --policy always
-staged run --rm -T --no-deps api python -m uptime_platform.cli --help >/dev/null
+staged run --rm -T --no-deps api python -c 'import uptime_platform.main' >/dev/null
 
 if ((CLEAN)); then
   containers=$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT_NAME")
@@ -238,9 +214,6 @@ compose() {
     --env-file "$INSTALL_DIR/.env" -f "$INSTALL_DIR/compose.yml" "${profiles[@]}" "$@"
 }
 compose up -d --no-build --wait api
-printf '%s\n' "$admin_password" | compose run --rm -T --no-deps api \
-  python -m uptime_platform.cli bootstrap-admin --email "$admin_email" --organization "$organization"
-unset admin_password
 compose up -d --no-build --wait frontend scheduler notification-worker
 [[ "$host_kind" == local ]] || compose up -d --no-build --wait caddy
 
@@ -262,4 +235,4 @@ for attempt in {1..30}; do
   sleep 2
 done
 ((ready)) || fail "Health check failed. Inspect logs in $INSTALL_DIR. Installation data were retained."
-printf '\nInstallation completed.\nURL: %s\nOwner: %s\nConfiguration: %s\n' "$app_url" "$admin_email" "$INSTALL_DIR"
+printf '\nInstallation completed.\nURL: %s\nCreate your administrator account: %s/register\nConfiguration: %s\n' "$app_url" "$app_url" "$INSTALL_DIR"

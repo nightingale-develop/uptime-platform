@@ -19,8 +19,9 @@ curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/r
 sudo bash install.sh
 ```
 
-The installer creates `/opt/uptime-platform`, configures Docker and asks for an
-address and the initial organization owner's credentials.
+The installer creates `/opt/uptime-platform`, configures Docker and asks for the
+application address. After installation, open the displayed `/register` link to
+create your account and organization. Your account receives the owner role.
 
 - **This computer:** select `localhost`, then open <http://localhost:8080>.
 - **Domain:** configure DNS and open ports 80/443; Caddy provides HTTPS.

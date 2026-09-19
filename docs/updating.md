@@ -10,8 +10,9 @@ curl -fL https://raw.githubusercontent.com/nightingale-develop/uptime-platform/r
 sudo bash install.sh
 ```
 
-Enter the application address, owner email, organization and password.
-Configuration is saved in `/opt/uptime-platform/.env`.
+Enter the application address. Configuration is saved in `/opt/uptime-platform/.env`.
+After installation, open the displayed `/register` link and enter your email,
+organization and password in the browser. The account receives the owner role.
 
 ## Update
 

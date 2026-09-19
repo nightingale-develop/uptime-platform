@@ -32,13 +32,8 @@ uses `frontend/` as its build context. Compose runs database migrations at start
 Open <http://localhost:8080>. This port must be free; do not run the installed
 frontend and the development frontend on the same port.
 
-To create the initial owner, read the password without recording it in shell history:
-
-```bash
-read -r -s -p 'Owner password: ' owner_password; printf '\n'
-printf '%s\n' "$owner_password" | docker compose run --rm -T --no-deps api python -m uptime_platform.cli bootstrap-admin --email owner@example.com --organization Development
-unset owner_password
-```
+Open <http://localhost:8080/register> to create your account and organization.
+The account receives the owner role.
 
 ```bash
 make logs-api

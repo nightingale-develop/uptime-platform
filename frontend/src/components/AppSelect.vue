@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
 
+import { useSelectMenu } from '@/composables/useSelectMenu'
 import type { SelectOption } from '@/types/select.ts'
 
 const props = withDefaults(
@@ -19,7 +20,7 @@ const props = withDefaults(
 
 const model = defineModel<T>({ required: true })
 
-const isOpen = ref(false)
+const { isOpen, open: activateMenu, close: closeMenu } = useSelectMenu()
 const trigger = ref<HTMLButtonElement | null>(null)
 const menu = ref<HTMLElement | null>(null)
 
@@ -34,10 +35,6 @@ const selectedOption = computed(() => {
 const menuId = computed(() => {
   return `${props.id}-options`
 })
-
-function closeMenu(): void {
-  isOpen.value = false
-}
 
 function updateMenuPosition(): void {
   if (!isOpen.value || !trigger.value) {
@@ -74,11 +71,11 @@ async function openMenu(): Promise<void> {
     return
   }
 
-  isOpen.value = true
+  activateMenu()
 
   await nextTick()
 
-  if (!trigger.value) {
+  if (!isOpen.value || !trigger.value) {
     return
   }
 
@@ -146,7 +143,7 @@ watch(
 )
 
 onMounted(() => {
-  document.addEventListener('pointerdown', handleDocumentPointerDown)
+  document.addEventListener('pointerdown', handleDocumentPointerDown, true)
 
   window.addEventListener('resize', handleViewportChange)
 
@@ -154,7 +151,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  document.removeEventListener('pointerdown', handleDocumentPointerDown, true)
 
   window.removeEventListener('resize', handleViewportChange)
 
