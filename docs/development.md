@@ -22,13 +22,22 @@ Use a separate Compose project to keep development data separate from `/opt`:
 ```bash
 export COMPOSE_PROJECT_NAME=uptime-platform-dev
 make docker-build
-docker build -t uptime-platform-frontend:dev frontend
 make docker-up
 make docker-ps
 ```
 
-The existing `docker-build` Make target builds the backend; the frontend command
-uses `frontend/` as its build context. Compose runs database migrations at startup.
+`make docker-build` builds both backend and frontend images from local sources,
+using `APP_IMAGE` and `FRONTEND_IMAGE` from `.env`. `make docker-rebuild` builds
+both images and recreates the containers. To rebuild only the frontend of an
+already running development stack:
+
+```bash
+make docker-build-frontend
+docker compose up -d --no-deps --force-recreate frontend
+```
+
+The updater downloads published images for `/opt/uptime-platform`; it does not
+build your local changes. Compose runs database migrations at startup.
 Open <http://localhost:8080>. This port must be free; do not run the installed
 frontend and the development frontend on the same port.
 
@@ -45,6 +54,11 @@ make docker-down
 `docker-down` preserves data volumes. `make docker-reset` is destructive; do not use
 it for the `/opt` installation. Keep `COMPOSE_PROJECT_NAME=uptime-platform-dev` set
 for all development Compose/Make commands.
+
+If migrations fail with `password authentication failed`, the password in `.env`
+does not match the existing database. Changing `POSTGRES_PASSWORD` does not change
+the password stored in a database volume. Restore the matching credentials or
+use a separate development Compose project with its own database.
 
 ## Python checks
 

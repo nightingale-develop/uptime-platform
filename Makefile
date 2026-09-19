@@ -15,6 +15,8 @@
 	scheduler \
 	notification-worker \
 	docker-build \
+	docker-build-backend \
+	docker-build-frontend \
 	docker-up \
 	docker-down \
 	docker-reset \
@@ -95,12 +97,23 @@ notification-worker:
 	uv run python -m uptime_platform.notifications.main
 
 
-docker-build:
+docker-build: docker-build-backend docker-build-frontend
+
+
+docker-build-backend:
 	set -a; . ./.env; set +a; \
 	docker build \
 		--no-cache \
-		-t "$$APP_IMAGE" \
+		-t "$${APP_IMAGE:-sashastudent/uptime-platform:latest}" \
 		.
+
+
+docker-build-frontend:
+	set -a; . ./.env; set +a; \
+	docker build \
+		--no-cache \
+		-t "$${FRONTEND_IMAGE:-sashastudent/uptime-platform-frontend:latest}" \
+		frontend
 
 
 docker-up:

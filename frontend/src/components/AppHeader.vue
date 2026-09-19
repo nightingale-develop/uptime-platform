@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AppHeaderDropdown from '@/components/AppHeaderDropdown.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useOrganizationStore } from '@/stores/organizations'
@@ -57,13 +58,6 @@ const organizationOptions = computed<SelectOption<string>[]>(() => {
 
 function handleOrganizationChange(organizationId: string): void {
   organizationStore.selectOrganization(organizationId)
-}
-
-function closeDropdown(event: Event): void {
-  const element = event.currentTarget as HTMLElement
-  const details = element.closest('details')
-
-  details?.removeAttribute('open')
 }
 
 async function openMobileMenu(): Promise<void> {
@@ -214,68 +208,29 @@ onBeforeUnmount(() => {
 
         <RouterLink class="app-header__link" to="/incidents"> Incidents </RouterLink>
 
-        <details class="app-header__dropdown">
-          <summary
-            class="app-header__dropdown-toggle"
-            :class="{
-              'app-header__dropdown-toggle--active': isOperationsActive,
-            }"
-          >
-            Operations
-          </summary>
+        <AppHeaderDropdown label="Operations" :active="isOperationsActive">
+          <RouterLink class="app-header__dropdown-link" to="/maintenance"> Maintenance </RouterLink>
 
-          <div class="app-header__dropdown-menu">
-            <RouterLink class="app-header__dropdown-link" to="/maintenance" @click="closeDropdown">
-              Maintenance
-            </RouterLink>
+          <RouterLink class="app-header__dropdown-link" to="/notifications">
+            Notifications
+          </RouterLink>
 
-            <RouterLink
-              class="app-header__dropdown-link"
-              to="/notifications"
-              @click="closeDropdown"
-            >
-              Notifications
-            </RouterLink>
+          <RouterLink class="app-header__dropdown-link" to="/status-pages">
+            Status Pages
+          </RouterLink>
+        </AppHeaderDropdown>
 
-            <RouterLink class="app-header__dropdown-link" to="/status-pages" @click="closeDropdown">
-              Status Pages
-            </RouterLink>
-          </div>
-        </details>
+        <AppHeaderDropdown label="Settings" :active="isSettingsActive">
+          <RouterLink class="app-header__dropdown-link" to="/members"> Members </RouterLink>
 
-        <details class="app-header__dropdown">
-          <summary
-            class="app-header__dropdown-toggle"
-            :class="{
-              'app-header__dropdown-toggle--active': isSettingsActive,
-            }"
-          >
-            Settings
-          </summary>
+          <RouterLink class="app-header__dropdown-link" to="/organizations">
+            Organizations
+          </RouterLink>
 
-          <div class="app-header__dropdown-menu">
-            <RouterLink class="app-header__dropdown-link" to="/members" @click="closeDropdown">
-              Members
-            </RouterLink>
-
-            <RouterLink
-              class="app-header__dropdown-link"
-              to="/organizations"
-              @click="closeDropdown"
-            >
-              Organizations
-            </RouterLink>
-
-            <RouterLink
-              v-if="canManageApiKeys"
-              class="app-header__dropdown-link"
-              to="/api-keys"
-              @click="closeDropdown"
-            >
-              API Keys
-            </RouterLink>
-          </div>
-        </details>
+          <RouterLink v-if="canManageApiKeys" class="app-header__dropdown-link" to="/api-keys">
+            API Keys
+          </RouterLink>
+        </AppHeaderDropdown>
       </nav>
 
       <div class="app-header__user">
