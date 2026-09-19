@@ -41,7 +41,7 @@ from uptime_platform.status_pages.router import (
 
 app = FastAPI(
     title="Uptime Platform API",
-    version="1.3.3",
+    version="1.3.4",
 )
 
 web_settings = get_web_settings()
