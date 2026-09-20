@@ -164,6 +164,7 @@ class OrganizationMemberService:
         self,
         user_id: UUID,
     ) -> Membership:
+        await self._membership_repository.lock_organization(self._organization_id)
         membership = await self._membership_repository.get_by_user_and_organization(
             user_id=user_id,
             organization_id=(self._organization_id),

@@ -17,6 +17,10 @@ const isSubmitting = ref(false)
 const errorMessage = ref<string | null>(null)
 
 async function submitRegistration(): Promise<void> {
+  if (isSubmitting.value) {
+    return
+  }
+
   errorMessage.value = null
 
   if (password.value !== passwordConfirmation.value) {
@@ -26,15 +30,24 @@ async function submitRegistration(): Promise<void> {
 
   isSubmitting.value = true
 
+  const credentials = { email: email.value, password: password.value }
+  let accountCreated = false
+
   try {
     await authStore.register({
-      email: email.value,
-      password: password.value,
+      ...credentials,
       organization_name: organizationName.value,
     })
 
-    await router.push('/login')
+    accountCreated = true
+    await authStore.login(credentials)
+    await router.replace('/dashboard')
   } catch (error) {
+    if (accountCreated) {
+      await router.replace({ name: 'login', query: { registered: '1' } })
+      return
+    }
+
     if (axios.isAxiosError(error)) {
       const detail = error.response?.data?.detail
 

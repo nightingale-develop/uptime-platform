@@ -8,6 +8,7 @@ const ORGANIZATION_STORAGE_KEY = 'uptime-platform.organization-id'
 interface OrganizationState {
   organizations: Organization[]
   currentOrganizationId: string | null
+  contextVersion: number
   initialized: boolean
 }
 
@@ -15,6 +16,7 @@ export const useOrganizationStore = defineStore('organizations', {
   state: (): OrganizationState => ({
     organizations: [],
     currentOrganizationId: null,
+    contextVersion: 0,
     initialized: false,
   }),
 
@@ -44,10 +46,15 @@ export const useOrganizationStore = defineStore('organizations', {
         return organization.id === storedOrganizationId
       })
 
+      const previousOrganizationId = this.currentOrganizationId
       if (storedOrganizationId && storedOrganizationExists) {
         this.currentOrganizationId = storedOrganizationId
       } else {
         this.currentOrganizationId = this.organizations[0]?.id ?? null
+      }
+
+      if (this.currentOrganizationId !== previousOrganizationId) {
+        this.contextVersion += 1
       }
 
       if (this.currentOrganizationId) {
@@ -68,12 +75,16 @@ export const useOrganizationStore = defineStore('organizations', {
         return
       }
 
-      this.currentOrganizationId = organizationId
+      if (this.currentOrganizationId !== organizationId) {
+        this.contextVersion += 1
+        this.currentOrganizationId = organizationId
+      }
 
       localStorage.setItem(ORGANIZATION_STORAGE_KEY, organizationId)
     },
 
     clear(): void {
+      this.contextVersion += 1
       this.organizations = []
       this.currentOrganizationId = null
       this.initialized = false

@@ -6,6 +6,7 @@
 	test-db-down \
 	test-migrate \
 	test \
+	test-frontend \
 	test-unit \
 	test-api \
 	test-integration \
@@ -72,6 +73,11 @@ test-integration: test-migrate
 
 test: test-migrate
 	set -a; . ./.env.test; set +a; uv run pytest -v
+	$(MAKE) test-frontend
+
+
+test-frontend:
+	npm --prefix frontend test
 
 
 test-fresh:

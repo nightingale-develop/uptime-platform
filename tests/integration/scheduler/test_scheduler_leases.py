@@ -24,6 +24,8 @@ from uptime_platform.monitors.entities import (
     MonitorType,
 )
 from uptime_platform.monitors.models import MonitorModel
+from uptime_platform.monitors.schemas import MonitorUpdate
+from uptime_platform.monitors.service import MonitorService
 from uptime_platform.monitors.sqlalchemy_repository import SqlAlchemyMonitorRepository
 from uptime_platform.organizations.models import OrganizationModel
 from uptime_platform.outbox.models import OutboxEventModel
@@ -34,6 +36,84 @@ pytestmark = pytest.mark.anyio
 
 SUCCESS = CheckResult(True, 1, 200, None)
 FAILURE = CheckResult(False, 1, 503, "Unavailable")
+
+
+async def test_edit_and_check_preserve_state_and_allow_following_checks(
+    session_factory, make_monitor
+):
+    monitor = await make_monitor(status=MonitorStatus.UP)
+    read = asyncio.Event()
+    resume_edit = asyncio.Event()
+    checking = asyncio.Event()
+    check_pid = None
+
+    class PausedReadRepository(SqlAlchemyMonitorRepository):
+        async def pause(self, result):
+            read.set()
+            await resume_edit.wait()
+            return result
+
+        async def get_by_id(self, *args, **kwargs):
+            return await self.pause(await super().get_by_id(*args, **kwargs))
+
+        async def get_by_id_for_update(self, *args, **kwargs):
+            return await self.pause(await super().get_by_id_for_update(*args, **kwargs))
+
+    async def edit():
+        async with session_factory() as session, session.begin():
+            return await MonitorService(
+                PausedReadRepository(session), monitor.organization_id
+            ).update(monitor.id, MonitorUpdate(name="Renamed"))
+
+    async def record():
+        nonlocal check_pid
+        async with session_factory() as session, session.begin():
+            check_pid = await session.scalar(select(func.pg_backend_pid()))
+            checking.set()
+            return await service(session, monitor).record(monitor.id, FAILURE)
+
+    async with asyncio.timeout(10), asyncio.TaskGroup() as group:
+        group.create_task(edit())
+        await read.wait()
+        check_task = group.create_task(record())
+        try:
+            await checking.wait()
+            async with session_factory() as observer:
+                while not check_task.done():
+                    if await observer.scalar(select(func.pg_blocking_pids(check_pid))):
+                        break
+                    await asyncio.sleep(0.01)
+        finally:
+            resume_edit.set()
+
+    async with session_factory() as session:
+        row = await session.get(MonitorModel, monitor.id)
+        assert row.name == "Renamed"
+        assert row.status is MonitorStatus.DOWN
+        assert row.consecutive_failures == 1
+        assert row.next_check_at > monitor.next_check_at
+
+    async with session_factory() as session, session.begin():
+        await service(session, monitor).record(monitor.id, FAILURE)
+
+    async with session_factory() as session:
+        assert await session.scalar(select(func.count()).select_from(CheckModel)) == 2
+        assert (
+            await session.scalar(select(func.count()).select_from(IncidentModel)) == 1
+        )
+
+
+async def test_edit_lock_does_not_access_another_organization(
+    session_factory, make_monitor
+):
+    monitor = await make_monitor()
+    async with session_factory() as session, session.begin():
+        assert (
+            await MonitorService(SqlAlchemyMonitorRepository(session), uuid4()).update(
+                monitor.id, MonitorUpdate(name="Wrong tenant")
+            )
+            is None
+        )
 
 
 class Probes:

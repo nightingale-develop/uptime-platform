@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import apiClient from '@/api/client'
+import { invalidateOrganizationLoad, loadOrganizationData } from '@/stores/organization-load'
 import type {
   OrganizationMember,
   OrganizationMemberCreate,
@@ -22,20 +23,20 @@ export const useMembersStore = defineStore('members', {
 
   actions: {
     async loadMembers(): Promise<void> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await apiClient.get<OrganizationMember[]>('/api/v1/organization-members')
-
-        this.members = response.data
-      } catch (error) {
-        this.members = []
-        this.error = 'Unable to load organization members'
-        throw error
-      } finally {
-        this.loading = false
-      }
+      await loadOrganizationData(
+        this,
+        () =>
+          apiClient
+            .get<OrganizationMember[]>('/api/v1/organization-members')
+            .then((response) => response.data),
+        (data) => {
+          this.members = data
+        },
+        () => {
+          this.members = []
+        },
+        'Unable to load organization members',
+      )
     },
 
     async addMember(data: OrganizationMemberCreate): Promise<OrganizationMember> {
@@ -78,6 +79,7 @@ export const useMembersStore = defineStore('members', {
     },
 
     clear(): void {
+      invalidateOrganizationLoad(this)
       this.members = []
       this.loading = false
       this.error = null

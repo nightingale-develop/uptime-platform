@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import apiClient from '@/api/client'
+import { invalidateOrganizationLoad, loadOrganizationData } from '@/stores/organization-load'
 import type { ApiKey, ApiKeyCreate, ApiKeyCreated } from '@/types/api-key'
 
 interface ApiKeysState {
@@ -18,20 +19,17 @@ export const useApiKeysStore = defineStore('api-keys', {
 
   actions: {
     async loadApiKeys(): Promise<void> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await apiClient.get<ApiKey[]>('/api/v1/api-keys')
-
-        this.apiKeys = response.data
-      } catch (error) {
-        this.apiKeys = []
-        this.error = 'Unable to load API keys'
-        throw error
-      } finally {
-        this.loading = false
-      }
+      await loadOrganizationData(
+        this,
+        () => apiClient.get<ApiKey[]>('/api/v1/api-keys').then((response) => response.data),
+        (data) => {
+          this.apiKeys = data
+        },
+        () => {
+          this.apiKeys = []
+        },
+        'Unable to load API keys',
+      )
     },
 
     async createApiKey(data: ApiKeyCreate): Promise<ApiKeyCreated> {
@@ -57,6 +55,7 @@ export const useApiKeysStore = defineStore('api-keys', {
     },
 
     clear(): void {
+      invalidateOrganizationLoad(this)
       this.apiKeys = []
       this.loading = false
       this.error = null

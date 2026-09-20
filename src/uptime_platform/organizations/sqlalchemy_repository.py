@@ -102,6 +102,13 @@ class SqlAlchemyOrganizationRepository:
 
 
 class SqlAlchemyMembershipRepository:
+    async def lock_organization(self, organization_id: UUID) -> None:
+        await self._session.execute(
+            select(OrganizationModel.id)
+            .where(OrganizationModel.id == organization_id)
+            .with_for_update()
+        )
+
     def __init__(
         self,
         session: AsyncSession,

@@ -60,10 +60,11 @@ does not match the existing database. Changing `POSTGRES_PASSWORD` does not chan
 the password stored in a database volume. Restore the matching credentials or
 use a separate development Compose project with its own database.
 
-## Python checks
+## Checks
 
 ```bash
 uv sync
+npm ci --prefix frontend
 make lint
 make test-unit
 make test
@@ -71,6 +72,9 @@ make test
 
 The test suite uses `.env.test` and a disposable PostgreSQL service on port 5433.
 The Make test targets load `.env.test` for both migrations and pytest;
-`make test` starts that database and applies migrations. For a direct pytest run,
+`make test` starts that database, applies migrations, runs all backend tests,
+then runs the frontend regression tests. Frontend tests require Node.js and the
+dependencies installed by `npm ci --prefix frontend`; run them separately with
+`make test-frontend`. For a direct pytest run,
 use `uv run --env-file .env.test pytest`. Do not point tests at a production
 database. Use `make format` to apply Ruff formatting and fixes.

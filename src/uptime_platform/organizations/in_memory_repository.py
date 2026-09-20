@@ -43,6 +43,9 @@ class InMemoryOrganizationRepository:
 
 
 class InMemoryMembershipRepository:
+    async def lock_organization(self, organization_id: UUID) -> None:
+        return None
+
     def __init__(self) -> None:
         self._memberships: dict[
             UUID,

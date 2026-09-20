@@ -257,6 +257,58 @@ async def test_add_monitor_to_status_page(
     assert response.status_code == 204
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [{"name": None}, {"published": None}, {"name": "Changed", "published": None}],
+)
+async def test_status_page_patch_rejects_null_without_changing_page(
+    client: httpx2.AsyncClient,
+    payload: dict[str, str | None],
+) -> None:
+    created = await client.post(
+        "/api/v1/status-pages",
+        json={"name": "Production", "slug": "production", "published": True},
+    )
+    assert created.status_code == 201
+    original = created.json()
+    url = f"/api/v1/status-pages/{original['id']}"
+
+    response = await client.patch(url, json=payload)
+
+    assert response.status_code == 422
+    current = await client.get(url)
+    assert current.status_code == 200
+    assert current.json() == original
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_name", "expected_published"),
+    [
+        ({}, "Production", True),
+        ({"published": False}, "Production", False),
+        ({"name": "Renamed"}, "Renamed", True),
+    ],
+)
+async def test_status_page_patch_preserves_omitted_fields(
+    client: httpx2.AsyncClient,
+    payload: dict[str, str | bool],
+    expected_name: str,
+    expected_published: bool,
+) -> None:
+    created = await client.post(
+        "/api/v1/status-pages",
+        json={"name": "Production", "slug": "production", "published": True},
+    )
+    assert created.status_code == 201
+    page_id = created.json()["id"]
+
+    response = await client.patch(f"/api/v1/status-pages/{page_id}", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["name"] == expected_name
+    assert response.json()["published"] is expected_published
+
+
 async def test_add_same_monitor_twice_returns_conflict(
     client: httpx2.AsyncClient,
     monitor_repository: InMemoryMonitorRepository,
@@ -378,6 +430,28 @@ async def test_unpublished_status_page_is_not_public(
     response = await client.get("/status/internal")
 
     assert response.status_code == 404
+
+
+async def test_public_status_page_with_unchecked_monitor_is_unknown(
+    client: httpx2.AsyncClient,
+    monitor_repository: InMemoryMonitorRepository,
+) -> None:
+    monitor = make_monitor(status=MonitorStatus.PENDING)
+    await monitor_repository.create(monitor)
+    created = await client.post(
+        "/api/v1/status-pages",
+        json={"name": "New deployment", "slug": "new-deployment"},
+    )
+    assert created.status_code == 201
+    page_id = created.json()["id"]
+    added = await client.post(f"/api/v1/status-pages/{page_id}/monitors/{monitor.id}")
+    assert added.status_code == 204
+
+    response = await client.get("/status/new-deployment")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "unknown"
+    assert response.json()["monitors"][0]["status"] == "pending"
 
 
 async def test_remove_monitor_from_status_page(

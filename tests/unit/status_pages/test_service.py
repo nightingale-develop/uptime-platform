@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import pytest
+
 from uptime_platform.monitors.entities import (
     HttpMonitorConfig,
     Monitor,
@@ -103,3 +105,27 @@ def test_only_paused_monitors_is_unknown() -> None:
     status = calculate_status_page_status(monitors)
 
     assert status is StatusPageStatus.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    ("statuses", "expected"),
+    [
+        ([MonitorStatus.PENDING], StatusPageStatus.UNKNOWN),
+        ([MonitorStatus.PENDING, MonitorStatus.PENDING], StatusPageStatus.UNKNOWN),
+        ([MonitorStatus.PENDING, MonitorStatus.PAUSED], StatusPageStatus.UNKNOWN),
+        ([MonitorStatus.UP, MonitorStatus.PENDING], StatusPageStatus.UNKNOWN),
+        ([MonitorStatus.DOWN, MonitorStatus.PENDING], StatusPageStatus.PARTIAL_OUTAGE),
+        (
+            [MonitorStatus.UP, MonitorStatus.DOWN, MonitorStatus.PENDING],
+            StatusPageStatus.PARTIAL_OUTAGE,
+        ),
+    ],
+)
+def test_pending_monitors_do_not_imply_health_or_hide_outages(
+    statuses: list[MonitorStatus],
+    expected: StatusPageStatus,
+) -> None:
+    assert (
+        calculate_status_page_status([make_monitor(status) for status in statuses])
+        is expected
+    )

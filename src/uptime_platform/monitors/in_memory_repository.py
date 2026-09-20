@@ -53,6 +53,7 @@ class InMemoryMonitorRepository:
         self,
         monitor_id: UUID,
         *,
+        organization_id: UUID | None = None,
         lease_token: UUID | None = None,
     ) -> Monitor | None:
         if lease_token is not None:
@@ -63,7 +64,14 @@ class InMemoryMonitorRepository:
                 or claim.expires_at <= datetime.now(UTC)
             ):
                 return None
-        return self._monitors.get(monitor_id)
+        monitor = self._monitors.get(monitor_id)
+        if (
+            monitor is not None
+            and organization_id is not None
+            and monitor.organization_id != organization_id
+        ):
+            return None
+        return monitor
 
     async def claim_due(
         self,

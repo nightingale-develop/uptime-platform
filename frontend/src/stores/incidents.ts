@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import apiClient from '@/api/client'
+import { invalidateOrganizationLoad, loadOrganizationData } from '@/stores/organization-load'
 import type { Incident, IncidentFilters } from '@/types/incident'
 
 interface IncidentState {
@@ -30,19 +31,17 @@ export const useIncidentStore = defineStore('incidents', {
     },
 
     async loadIncidents(filters: IncidentFilters = {}): Promise<void> {
-      this.loading = true
-      this.error = null
-
-      try {
-        this.incidents = await this.getIncidents(filters)
-      } catch (error) {
-        this.incidents = []
-        this.error = 'Unable to load incidents'
-
-        throw error
-      } finally {
-        this.loading = false
-      }
+      await loadOrganizationData(
+        this,
+        () => this.getIncidents(filters),
+        (data) => {
+          this.incidents = data
+        },
+        () => {
+          this.incidents = []
+        },
+        'Unable to load incidents',
+      )
     },
 
     async getIncident(incidentId: string): Promise<Incident> {
@@ -52,6 +51,7 @@ export const useIncidentStore = defineStore('incidents', {
     },
 
     clear(): void {
+      invalidateOrganizationLoad(this)
       this.incidents = []
       this.loading = false
       this.error = null

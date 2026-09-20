@@ -40,6 +40,8 @@ def calculate_status_page_status(
     )
 
     if down_count == 0:
+        if any(monitor.status is MonitorStatus.PENDING for monitor in active_monitors):
+            return StatusPageStatus.UNKNOWN
         return StatusPageStatus.OPERATIONAL
 
     if down_count == len(active_monitors):

@@ -95,6 +95,7 @@ class SqlAlchemyMonitorRepository:
         self,
         monitor_id: UUID,
         *,
+        organization_id: UUID | None = None,
         lease_token: UUID | None = None,
     ) -> Monitor | None:
         statement = (
@@ -103,6 +104,9 @@ class SqlAlchemyMonitorRepository:
             .with_for_update()
             .execution_options(populate_existing=True)
         )
+
+        if organization_id is not None:
+            statement = statement.where(MonitorModel.organization_id == organization_id)
 
         result = await self._session.execute(statement)
 

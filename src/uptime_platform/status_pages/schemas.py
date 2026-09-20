@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from uptime_platform.monitors.entities import MonitorStatus
 from uptime_platform.status_pages.entities import StatusPageStatus
@@ -26,6 +26,13 @@ class StatusPageUpdate(BaseModel):
         max_length=100,
     )
     published: bool | None = None
+
+    @field_validator("name", "published")
+    @classmethod
+    def reject_null(cls, value: str | bool | None) -> str | bool:
+        if value is None:
+            raise ValueError("This field cannot be null")
+        return value
 
 
 class StatusPageResponse(BaseModel):

@@ -60,6 +60,10 @@ async function submitLogin(): Promise<void> {
       </div>
 
       <form class="login-form" @submit.prevent="submitLogin">
+        <p v-if="route.query.registered === '1'" role="status">
+          Account created. Automatic sign-in failed. Please sign in.
+        </p>
+
         <div class="form-field">
           <label for="email"> Email </label>
 

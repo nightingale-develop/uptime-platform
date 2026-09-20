@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import apiClient from '@/api/client'
+import { invalidateOrganizationLoad, loadOrganizationData } from '@/stores/organization-load'
 import type {
   MaintenanceWindow,
   MaintenanceWindowCreate,
@@ -34,19 +35,17 @@ export const useMaintenanceStore = defineStore('maintenance', {
     },
 
     async loadMaintenanceWindows(filters: MaintenanceWindowFilters = {}): Promise<void> {
-      this.loading = true
-      this.error = null
-
-      try {
-        this.windows = await this.getMaintenanceWindows(filters)
-      } catch (error) {
-        this.windows = []
-        this.error = 'Unable to load maintenance windows'
-
-        throw error
-      } finally {
-        this.loading = false
-      }
+      await loadOrganizationData(
+        this,
+        () => this.getMaintenanceWindows(filters),
+        (data) => {
+          this.windows = data
+        },
+        () => {
+          this.windows = []
+        },
+        'Unable to load maintenance windows',
+      )
     },
 
     async createMaintenanceWindow(data: MaintenanceWindowCreate): Promise<MaintenanceWindow> {
@@ -64,6 +63,7 @@ export const useMaintenanceStore = defineStore('maintenance', {
     },
 
     clear(): void {
+      invalidateOrganizationLoad(this)
       this.windows = []
       this.loading = false
       this.error = null

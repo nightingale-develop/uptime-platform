@@ -26,8 +26,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    permissions:
-      contents: write
     outputs:
       version: ${{ steps.prepare.outputs.version }}
       commit: ${{ steps.prepare.outputs.commit }}
@@ -45,9 +43,20 @@ jobs:
           --health-cmd "pg_isready -U uptime -d uptime_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
+      - name: Validate release token and resolve author
+        id: identity
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure the RELEASE_TOKEN repository secret with your GitHub personal access token.' >&2; exit 1; }
+          identity=$(gh api user --jq '[.login, (.id | tostring), .type] | @tsv')
+          IFS=$'\t' read -r login user_id account_type <<< "$identity"
+          test "$account_type" = User || { echo 'RELEASE_TOKEN must belong to a personal GitHub account.' >&2; exit 1; }
+          printf 'login=%s\nuser_id=%s\n' "$login" "$user_id" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -56,6 +65,8 @@ jobs:
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
+          RELEASE_LOGIN: ${{ steps.identity.outputs.login }}
+          RELEASE_USER_ID: ${{ steps.identity.outputs.user_id }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
@@ -68,8 +79,8 @@ jobs:
             echo "Tag v$version already exists. Use Re-run failed jobs to resume finalization." >&2
             exit 1
           fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name "$RELEASE_LOGIN"
+          git config user.email "$RELEASE_USER_ID+$RELEASE_LOGIN@users.noreply.github.com"
           git add pyproject.toml uv.lock src/uptime_platform/main.py Dockerfile frontend/Dockerfile frontend/package.json frontend/package-lock.json README.md
           git commit -m "chore(release): v$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -111,10 +122,8 @@ jobs:
     needs: publish
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       GH_REPO: ${{ github.repository }}
       RELEASE_VERSION: ${{ needs.publish.outputs.version }}
       RELEASE_COMMIT: ${{ needs.publish.outputs.commit }}
@@ -123,6 +132,7 @@ jobs:
     steps:
       - name: Check release is still current
         run: |
+          test -n "$GH_TOKEN" || { echo 'Configure the RELEASE_TOKEN repository secret.' >&2; exit 1; }
           test "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" = "$RELEASE_COMMIT" || { echo 'main moved; inspect before promoting this release.' >&2; exit 1; }
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4

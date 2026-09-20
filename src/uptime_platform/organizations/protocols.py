@@ -30,6 +30,8 @@ class OrganizationRepositoryProtocol(Protocol):
 
 
 class MembershipRepositoryProtocol(Protocol):
+    async def lock_organization(self, organization_id: UUID) -> None: ...
+
     async def create(
         self,
         membership: Membership,

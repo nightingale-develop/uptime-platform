@@ -286,9 +286,9 @@ class MonitorService:
         monitor_id: UUID,
         data: MonitorUpdate,
     ) -> Monitor | None:
-        monitor = await self._repository.get_by_id(
+        monitor = await self._repository.get_by_id_for_update(
             monitor_id,
-            self._organization_id,
+            organization_id=self._organization_id,
         )
 
         if monitor is None:

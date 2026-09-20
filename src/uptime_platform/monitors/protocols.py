@@ -43,6 +43,7 @@ class MonitorRepositoryProtocol(Protocol):
         self,
         monitor_id: UUID,
         *,
+        organization_id: UUID | None = None,
         lease_token: UUID | None = None,
     ) -> Monitor | None: ...
 

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import apiClient from '@/api/client'
+import { invalidateOrganizationLoad, loadOrganizationData } from '@/stores/organization-load'
 import type {
   NotificationDestination,
   NotificationDestinationCreate,
@@ -22,23 +23,20 @@ export const useNotificationStore = defineStore('notifications', {
 
   actions: {
     async loadDestinations(): Promise<void> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await apiClient.get<NotificationDestination[]>(
-          '/api/v1/notification-destinations',
-        )
-
-        this.destinations = response.data
-      } catch (error) {
-        this.destinations = []
-        this.error = 'Unable to load notification destinations'
-
-        throw error
-      } finally {
-        this.loading = false
-      }
+      await loadOrganizationData(
+        this,
+        () =>
+          apiClient
+            .get<NotificationDestination[]>('/api/v1/notification-destinations')
+            .then((response) => response.data),
+        (data) => {
+          this.destinations = data
+        },
+        () => {
+          this.destinations = []
+        },
+        'Unable to load notification destinations',
+      )
     },
 
     async createDestination(data: NotificationDestinationCreate): Promise<NotificationDestination> {
@@ -79,6 +77,7 @@ export const useNotificationStore = defineStore('notifications', {
     },
 
     clear(): void {
+      invalidateOrganizationLoad(this)
       this.destinations = []
       this.loading = false
       this.error = null

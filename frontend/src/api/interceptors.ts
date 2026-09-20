@@ -1,4 +1,4 @@
-import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { CanceledError, type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { Router } from 'vue-router'
 
 import apiClient from '@/api/client'
@@ -11,6 +11,8 @@ type OrganizationStore = ReturnType<typeof useOrganizationStore>
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean
+  _organizationId?: string | null
+  _organizationVersion?: number
 }
 
 const AUTH_ENDPOINTS_WITHOUT_REFRESH = [
@@ -35,21 +37,59 @@ export function setupApiInterceptors(
   organizationStore: OrganizationStore,
   router: Router,
 ): void {
-  apiClient.interceptors.request.use((config) => {
-    if (organizationStore.currentOrganizationId) {
-      config.headers.set('X-Organization-ID', organizationStore.currentOrganizationId)
-    } else {
-      config.headers.delete('X-Organization-ID')
-    }
+  function contextChanged(config?: RetryableRequestConfig): boolean {
+    return (
+      config?._organizationId !== undefined &&
+      (config._organizationId !== organizationStore.currentOrganizationId ||
+        config._organizationVersion !== organizationStore.contextVersion)
+    )
+  }
 
-    return config
-  })
+  apiClient.interceptors.request.use(
+    (config: RetryableRequestConfig) => {
+      const organizationId = organizationStore.currentOrganizationId
+      if (
+        config.url?.startsWith('/api/v1/') &&
+        !config.url.startsWith('/api/v1/auth/') &&
+        config.url !== '/api/v1/organizations'
+      ) {
+        if (config._organizationId === undefined) {
+          config._organizationId = organizationId
+          config._organizationVersion = organizationStore.contextVersion
+        }
+        if (contextChanged(config)) {
+          throw new CanceledError('Organization changed', config)
+        }
+      }
+
+      if (organizationId) {
+        config.headers.set('X-Organization-ID', organizationId)
+      } else {
+        config.headers.delete('X-Organization-ID')
+      }
+
+      return config
+    },
+    (error: unknown) => {
+      throw error
+    },
+    { synchronous: true },
+  )
 
   apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      if (contextChanged(response.config)) {
+        throw new CanceledError('Organization changed', response.config)
+      }
+      return response
+    },
 
     async (error: AxiosError) => {
       const request = error.config as RetryableRequestConfig | undefined
+
+      if (contextChanged(request)) {
+        return Promise.reject(new CanceledError('Organization changed', request))
+      }
 
       if (
         error.response?.status !== 401 ||

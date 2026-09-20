@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import apiClient from '@/api/client'
+import { invalidateOrganizationLoad, loadOrganizationData } from '@/stores/organization-load'
 
 import type {
   Check,
@@ -26,21 +27,17 @@ export const useMonitorStore = defineStore('monitors', {
 
   actions: {
     async loadMonitors(): Promise<void> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await apiClient.get<Monitor[]>('/api/v1/monitors')
-
-        this.monitors = response.data
-      } catch (error) {
-        this.monitors = []
-        this.error = 'Unable to load monitors'
-
-        throw error
-      } finally {
-        this.loading = false
-      }
+      await loadOrganizationData(
+        this,
+        () => apiClient.get<Monitor[]>('/api/v1/monitors').then((response) => response.data),
+        (data) => {
+          this.monitors = data
+        },
+        () => {
+          this.monitors = []
+        },
+        'Unable to load monitors',
+      )
     },
 
     async getMonitor(monitorId: string): Promise<Monitor> {
@@ -78,6 +75,7 @@ export const useMonitorStore = defineStore('monitors', {
     },
 
     clear(): void {
+      invalidateOrganizationLoad(this)
       this.monitors = []
       this.loading = false
       this.error = null

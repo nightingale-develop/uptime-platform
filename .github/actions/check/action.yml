@@ -43,4 +43,5 @@ runs:
         npx --no-install oxlint .
         npx --no-install eslint .
         npx --no-install prettier --check src/
+        npm test
         npm run build

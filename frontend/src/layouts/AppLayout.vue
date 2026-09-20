@@ -32,7 +32,7 @@ onMounted(async () => {
         No organizations available.
       </p>
 
-      <RouterView v-else />
+      <RouterView v-else :key="organizationStore.currentOrganizationId ?? 'no-organization'" />
     </main>
   </div>
 </template>
