@@ -20,6 +20,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-LABEL org.opencontainers.image.version="1.3.4"
+LABEL org.opencontainers.image.version="1.3.6"
 
 EXPOSE 80
