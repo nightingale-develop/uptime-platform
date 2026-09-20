@@ -10,7 +10,7 @@ unset CORS_ALLOWED_ORIGINS NOTIFICATION_TIMEOUT_SECONDS UPTIME_HOST
 unset RETENTION_ENABLED RETENTION_CHECKS_DAYS RETENTION_INCIDENTS_DAYS
 unset RETENTION_NOTIFICATIONS_DAYS RETENTION_INTERVAL_SECONDS RETENTION_BATCH_SIZE
 
-UPDATER_REVISION=7
+UPDATER_REVISION=8
 RELEASE_BASE=https://raw.githubusercontent.com/nightingale-develop/uptime-platform
 INSTALL_DIR=/opt/uptime-platform
 LOCK_FILE=/run/lock/uptime-platform.lock
@@ -112,7 +112,7 @@ fi
 stage=$(mktemp -d "$INSTALL_DIR/.update.XXXXXXXX")
 printf 'Downloading deployment files for %s...\n' "$VERSION"
 files=(
-  compose.yml update.sh
+  compose.yml update.sh .env.example
   observability/prometheus/prometheus.yml
   observability/prometheus/alerts.yml
   observability/prometheus/alerts.test.yml
@@ -144,7 +144,23 @@ awk -v version="$VERSION" '
     print "FRONTEND_IMAGE=sashastudent/uptime-platform-frontend:" version
   }
 ' "$INSTALL_DIR/.env" > "$stage/env.new"
-cat "$stage/env.new" > "$stage/.env"
+awk '
+  /^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/ {
+    key = $0
+    sub(/^[[:space:]]*(export[[:space:]]+)?/, "", key)
+    sub(/[[:space:]]*=.*/, "", key)
+    if (FNR == NR) seen[key] = 1
+    else if (!seen[key]++) {
+      if (key == "DATABASE_URL") database_url = 1
+      else print
+    }
+  }
+  FNR == NR { print }
+  END {
+    if (database_url)
+      print "DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+  }
+' "$stage/env.new" "$stage/.env.example" > "$stage/.env"
 chmod 600 "$stage/.env"
 
 staged() {
