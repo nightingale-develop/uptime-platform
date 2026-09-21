@@ -14,6 +14,6 @@ class OutboxEvent:
     id: UUID
     organization_id: UUID
     event_type: OutboxEventType
-    payload: dict[str, str]
+    payload: dict[str, object]
     created_at: datetime
     processed_at: datetime | None

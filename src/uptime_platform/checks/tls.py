@@ -4,6 +4,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from uptime_platform.checks.entities import CheckResult
+from uptime_platform.checks.failures import failure_kind
 
 
 class TlsChecker:
@@ -104,6 +105,7 @@ class TlsChecker:
                 response_time_ms=response_time_ms,
                 status_code=None,
                 error=str(exc),
+                details={"failure_kind": failure_kind(exc)},
             )
 
         finally:

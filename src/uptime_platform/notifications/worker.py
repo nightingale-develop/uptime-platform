@@ -44,6 +44,7 @@ class NotificationWorker:
         database_timeout_seconds: float = 5,
         cleanup_timeout_seconds: float = 5,
         metrics: Metrics | None = None,
+        public_app_url: str = "",
     ) -> None:
         if (
             min(
@@ -75,6 +76,7 @@ class NotificationWorker:
             notification_timeout_seconds + 3 * database_timeout_seconds + 1,
         )
         self._notification_timeout_seconds = notification_timeout_seconds
+        self._public_app_url = public_app_url
 
         self._notification_service = NotificationService(metrics=self._metrics)
 
@@ -192,6 +194,7 @@ class NotificationWorker:
             destination=destination,
             client=self._http_client,
             timeout_seconds=self._notification_timeout_seconds,
+            public_app_url=self._public_app_url,
         )
         updated_delivery = await self._notification_service.process(
             delivery=delivery,

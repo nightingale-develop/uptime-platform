@@ -105,6 +105,7 @@ services:
     image: ${APP_IMAGE:-sashastudent/uptime-platform:latest}
     restart: unless-stopped
     environment:
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uptime}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-uptime}
       NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-5}
       METRICS_HOST: 0.0.0.0

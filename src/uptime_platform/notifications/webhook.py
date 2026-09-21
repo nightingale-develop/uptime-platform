@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import httpx2
 
+from uptime_platform.notifications.content import notification_payload
 from uptime_platform.notifications.exceptions import (
     NotificationDeliveryError,
 )
@@ -19,11 +20,13 @@ class WebhookNotificationChannel:
         url: str,
         secret: str,
         timeout_seconds: float,
+        public_app_url: str = "",
     ) -> None:
         self._client = client
         self._url = url
         self._secret = secret
         self._timeout_seconds = timeout_seconds
+        self._public_app_url = public_app_url
 
     async def send(
         self,
@@ -33,7 +36,7 @@ class WebhookNotificationChannel:
             "id": str(event.id),
             "type": event.event_type.value,
             "created_at": event.created_at.isoformat(),
-            "payload": event.payload,
+            "payload": notification_payload(event, self._public_app_url),
         }
 
         body = json.dumps(
@@ -66,4 +69,4 @@ class WebhookNotificationChannel:
             response.raise_for_status()
 
         except httpx2.HTTPError as exc:
-            raise NotificationDeliveryError(f"Webhook delivery failed: {exc}") from exc
+            raise NotificationDeliveryError("Webhook delivery failed") from exc

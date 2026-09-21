@@ -2,6 +2,46 @@
 
 The worker uses PostgreSQL delivery leases to coordinate multiple processes. No broker or lease-renewal service is required.
 
+## Incident messages
+
+Telegram messages use plain text; email includes an HTML body and a plain-text alternative.
+Both show the monitor name, type and sanitized target before the technical UUIDs.
+An opening message includes the check's known failure reason. A recovery message
+includes the incident start, restoration time and elapsed duration, in UTC.
+Thresholds still determine when an incident opens and resolves; this duration is
+the recorded incident duration, not the time since the first failed probe.
+
+Set `PUBLIC_APP_URL=https://uptime.example.com` in the deployment `.env` to add a
+link to `/monitors/{monitor_id}`. Use the browser-facing HTTP(S) address, without
+credentials, query parameters or fragments. Localhost, private IPs and internal
+hostnames are rejected. An empty value omits the link. New installations fill it
+for public addresses; existing installations receive an empty default on update
+and need an explicit value. Apply configuration through the normal deployment
+update procedure. Links require sign-in and access to the monitor's organization;
+deleted monitors remain described in the notification but no longer open in the UI.
+
+The event stores its monitor/check snapshot in the same transaction as the incident.
+Renaming or deleting the monitor before delivery cannot remove that snapshot.
+When an address changes during a probe, the message identifies the address that was
+actually checked. Older queued events remain deliverable, with unavailable fields
+shown explicitly rather than reconstructed from current monitor data.
+
+Targets omit URL credentials, **all** query parameters and fragments. Recognized
+credential paths (including Telegram bot tokens and Slack/webhook paths) are masked.
+Monitor names are escaped for HTML; raw exception text, response bodies and full
+monitor/destination configuration are not copied into messages. Known exception
+types provide safe reasons such as timeout, DNS, TLS or connection failure;
+unclassified failures are reported as reason unavailable. Avoid placing arbitrary
+credentials in monitor names or custom URL paths: an opaque secret has no reliable
+generic identifier. The original monitoring URL is unchanged.
+
+Webhooks retain `id`, `type`, `created_at` and `payload`, plus the existing signing
+and event-ID headers. New payloads include `monitor_id`, `incident_id`, `monitor_name`,
+`monitor_type`, `target`, `reason`, `status_code`, `started_at`, `resolved_at`,
+`duration_seconds` and `monitor_url`. Timestamps use ISO 8601; missing values are
+JSON `null`, and duration is a number of seconds. Legacy UUID-only payloads remain
+supported. These additional JSON fields need no database migration.
+
 ## Ownership and transactions
 
 Each delivery has an existing `locked_until` timestamp and a new `lease_token` UUID. A claim selects eligible rows with `FOR UPDATE SKIP LOCKED`, assigns a fresh token and expiry using PostgreSQL's clock, and commits before any network request. Another worker skips locked rows and cannot claim an unexpired lease.

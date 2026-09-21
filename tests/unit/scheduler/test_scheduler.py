@@ -79,6 +79,7 @@ async def test_scheduler_records_with_claim_token(setup_scheduler, monkeypatch):
         monitor_id=claim.monitor.id,
         result=factory.create.return_value.check.return_value,
         lease_token=claim.token,
+        checked_monitor=claim.monitor,
     )
     release.assert_awaited_once_with([claim])
 

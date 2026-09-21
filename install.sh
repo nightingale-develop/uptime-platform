@@ -6,7 +6,7 @@ unset COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_PROFILES COMPOSE_ENV_FILES COMPO
 unset APP_IMAGE FRONTEND_IMAGE FRONTEND_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
 unset JWT_SECRET JWT_ACCESS_TOKEN_TTL_MINUTES API_KEY_HASH_SECRET REFRESH_TOKEN_HASH_SECRET
 unset REFRESH_TOKEN_TTL_DAYS REFRESH_COOKIE_NAME REFRESH_COOKIE_SECURE REFRESH_COOKIE_SAMESITE
-unset CORS_ALLOWED_ORIGINS NOTIFICATION_TIMEOUT_SECONDS UPTIME_HOST
+unset CORS_ALLOWED_ORIGINS NOTIFICATION_TIMEOUT_SECONDS UPTIME_HOST PUBLIC_APP_URL
 unset RETENTION_ENABLED RETENTION_CHECKS_DAYS RETENTION_INCIDENTS_DAYS
 unset RETENTION_NOTIFICATIONS_DAYS RETENTION_INTERVAL_SECONDS RETENTION_BATCH_SIZE
 
@@ -167,6 +167,10 @@ mv "$stage/compose.managed.yml" "$stage/compose.yml"
     printf 'REFRESH_COOKIE_SECURE=false\n'
   else
     printf 'REFRESH_COOKIE_SECURE=true\n'
+    if [[ "$host_kind" == domain && "$host" != *.internal && "$host" != *.local && "$host" != *.localhost ]] ||
+       { [[ "$host_kind" == ip ]] && python3 -c 'import ipaddress,sys; sys.exit(not ipaddress.ip_address(sys.argv[1]).is_global)' "$host"; }; then
+      printf 'PUBLIC_APP_URL=%s\n' "$app_url"
+    fi
   fi
   printf 'CORS_ALLOWED_ORIGINS=%s\n' "$app_url"
   printf 'APP_IMAGE=sashastudent/uptime-platform:%s\n' "$RELEASE_VERSION"

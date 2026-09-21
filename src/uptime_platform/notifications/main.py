@@ -48,6 +48,7 @@ async def main() -> None:
                 session_factory=SessionFactory,
                 http_client=client,
                 notification_timeout_seconds=(settings.notification_timeout_seconds),
+                public_app_url=settings.public_app_url,
             )
 
             await worker.run_forever()

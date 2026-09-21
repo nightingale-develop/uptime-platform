@@ -25,6 +25,7 @@ def create_notification_channel(
     destination: NotificationDestination,
     client: httpx2.AsyncClient,
     timeout_seconds: int,
+    public_app_url: str = "",
 ) -> NotificationChannelProtocol:
     if destination.destination_type is NotificationDestinationType.WEBHOOK:
         if not isinstance(
@@ -38,6 +39,7 @@ def create_notification_channel(
             url=destination.config.url,
             secret=destination.config.secret,
             timeout_seconds=timeout_seconds,
+            public_app_url=public_app_url,
         )
 
     if destination.destination_type is NotificationDestinationType.TELEGRAM:
@@ -52,6 +54,7 @@ def create_notification_channel(
             bot_token=destination.config.bot_token,
             chat_id=destination.config.chat_id,
             timeout_seconds=timeout_seconds,
+            public_app_url=public_app_url,
         )
 
     if destination.destination_type is NotificationDestinationType.EMAIL:
@@ -70,6 +73,7 @@ def create_notification_channel(
             to_email=destination.config.to_email,
             security=destination.config.security,
             timeout_seconds=timeout_seconds,
+            public_app_url=public_app_url,
         )
 
     raise ValueError(

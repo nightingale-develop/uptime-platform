@@ -21,13 +21,14 @@ from uptime_platform.incidents.protocols import (
 from uptime_platform.maintenance.protocols import (
     MaintenanceWindowRepositoryProtocol,
 )
-from uptime_platform.monitors.entities import MonitorStatus
+from uptime_platform.monitors.entities import Monitor, MonitorStatus
 from uptime_platform.monitors.protocols import (
     MonitorRepositoryProtocol,
 )
 from uptime_platform.monitors.state import (
     apply_check_result,
 )
+from uptime_platform.notifications.content import incident_payload
 from uptime_platform.outbox.entities import (
     OutboxEvent,
     OutboxEventType,
@@ -80,6 +81,7 @@ class CheckService:
         return await self.record(
             monitor_id=monitor.id,
             result=result,
+            checked_monitor=monitor,
         )
 
     async def get_history(
@@ -106,6 +108,7 @@ class CheckService:
         result: CheckResult,
         *,
         lease_token: UUID | None = None,
+        checked_monitor: Monitor | None = None,
     ) -> Check | None:
         if lease_token is None:
             monitor = await self._monitor_repository.get_by_id_for_update(monitor_id)
@@ -163,6 +166,8 @@ class CheckService:
             monitor_id=monitor.id,
             organization_id=monitor.organization_id,
             checked_at=check.checked_at,
+            monitor=checked_monitor or monitor,
+            result=result,
         )
 
         if lease_token is not None:
@@ -176,6 +181,8 @@ class CheckService:
         monitor_id: UUID,
         organization_id: UUID,
         checked_at: datetime,
+        monitor: Monitor,
+        result: CheckResult,
     ) -> None:
         if (
             previous_status is not MonitorStatus.DOWN
@@ -195,10 +202,7 @@ class CheckService:
                 id=uuid4(),
                 organization_id=organization_id,
                 event_type=OutboxEventType.INCIDENT_OPENED,
-                payload={
-                    "incident_id": str(incident.id),
-                    "monitor_id": str(monitor_id),
-                },
+                payload=incident_payload(monitor, incident, result),
                 created_at=checked_at,
                 processed_at=None,
             )
@@ -225,10 +229,7 @@ class CheckService:
                 id=uuid4(),
                 organization_id=organization_id,
                 event_type=OutboxEventType.INCIDENT_RESOLVED,
-                payload={
-                    "incident_id": str(resolved_incident.id),
-                    "monitor_id": str(monitor_id),
-                },
+                payload=incident_payload(monitor, resolved_incident, result),
                 created_at=checked_at,
                 processed_at=None,
             )

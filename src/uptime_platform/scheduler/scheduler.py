@@ -140,6 +140,7 @@ class Scheduler:
                         monitor_id=monitor.id,
                         result=result,
                         lease_token=claim.token,
+                        checked_monitor=monitor,
                     )
                     if check is None:
                         logger.info(

@@ -44,7 +44,7 @@ class OutboxEventModel(Base):
         nullable=False,
     )
 
-    payload: Mapped[dict[str, str]] = mapped_column(
+    payload: Mapped[dict[str, object]] = mapped_column(
         JSON,
         nullable=False,
     )

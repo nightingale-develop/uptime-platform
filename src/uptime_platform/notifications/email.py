@@ -3,6 +3,11 @@ from email.message import EmailMessage
 import aiosmtplib
 from aiosmtplib.errors import SMTPException
 
+from uptime_platform.notifications.content import (
+    event_title,
+    html_message,
+    text_message,
+)
 from uptime_platform.notifications.entities import (
     EmailSecurity,
 )
@@ -11,7 +16,6 @@ from uptime_platform.notifications.exceptions import (
 )
 from uptime_platform.outbox.entities import (
     OutboxEvent,
-    OutboxEventType,
 )
 
 
@@ -26,6 +30,7 @@ class EmailNotificationChannel:
         to_email: str,
         security: EmailSecurity,
         timeout_seconds: int,
+        public_app_url: str = "",
     ) -> None:
         self._host = host
         self._port = port
@@ -35,6 +40,7 @@ class EmailNotificationChannel:
         self._to_email = to_email
         self._security = security
         self._timeout_seconds = timeout_seconds
+        self._public_app_url = public_app_url
 
     async def send(
         self,
@@ -69,37 +75,13 @@ class EmailNotificationChannel:
         self,
         event: OutboxEvent,
     ) -> EmailMessage:
-        title = self._event_title(event)
-
-        monitor_id = event.payload.get(
-            "monitor_id",
-            "unknown",
-        )
-        incident_id = event.payload.get(
-            "incident_id",
-            "unknown",
-        )
-
+        title = event_title(event)
         message = EmailMessage()
-
         message["From"] = self._from_email
         message["To"] = self._to_email
         message["Subject"] = f"[Uptime Platform] {title}"
-
-        message.set_content(
-            f"{title}\n\nMonitor ID: {monitor_id}\nIncident ID: {incident_id}"
+        message.set_content(text_message(event, self._public_app_url))
+        message.add_alternative(
+            html_message(event, self._public_app_url), subtype="html"
         )
-
         return message
-
-    @staticmethod
-    def _event_title(
-        event: OutboxEvent,
-    ) -> str:
-        if event.event_type is OutboxEventType.INCIDENT_OPENED:
-            return "Incident opened"
-
-        if event.event_type is OutboxEventType.INCIDENT_RESOLVED:
-            return "Incident resolved"
-
-        return str(event.event_type)

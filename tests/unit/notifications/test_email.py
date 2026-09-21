@@ -83,7 +83,7 @@ async def test_email_sends_event(
     assert captured_message["To"] == "admin@example.com"
     assert captured_message["Subject"] == ("[Uptime Platform] Incident opened")
 
-    body = captured_message.get_content()
+    body = captured_message.get_body(preferencelist=("plain",)).get_content()
 
     assert "Incident opened" in body
     assert event.payload["monitor_id"] in body

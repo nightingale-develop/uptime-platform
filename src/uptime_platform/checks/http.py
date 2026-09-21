@@ -3,6 +3,7 @@ import time
 import httpx2
 
 from uptime_platform.checks.entities import CheckResult
+from uptime_platform.checks.failures import failure_kind
 from uptime_platform.monitors.entities import HttpMethod
 
 
@@ -81,4 +82,5 @@ class HttpChecker:
                 response_time_ms=response_time_ms,
                 status_code=None,
                 error=str(exc),
+                details={"failure_kind": failure_kind(exc)},
             )
