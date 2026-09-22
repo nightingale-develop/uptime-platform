@@ -27,6 +27,8 @@ const enabled = ref(true)
 const webhookUrl = ref('')
 const webhookSecret = ref('')
 
+const slackWebhookUrl = ref('')
+
 const telegramBotToken = ref('')
 const telegramChatId = ref('')
 
@@ -56,6 +58,7 @@ const destinationTypeOptions: SelectOption<NotificationDestinationType>[] = [
   { value: 'webhook', label: 'Webhook' },
   { value: 'telegram', label: 'Telegram' },
   { value: 'email', label: 'Email' },
+  { value: 'slack', label: 'Slack' },
 ]
 
 const emailSecurityOptions: SelectOption<EmailSecurity>[] = [
@@ -65,6 +68,7 @@ const emailSecurityOptions: SelectOption<EmailSecurity>[] = [
 ]
 
 function clearConfigFields(): void {
+  slackWebhookUrl.value = ''
   webhookUrl.value = ''
   webhookSecret.value = ''
 
@@ -102,6 +106,8 @@ function startEdit(destination: NotificationDestination): void {
   destinationType.value = destination.destination_type
 
   switch (destination.destination_type) {
+    case 'slack':
+      break
     case 'webhook':
       webhookUrl.value = destination.config.url
       break
@@ -132,6 +138,18 @@ function buildCreatePayload(): NotificationDestinationCreate | null {
   }
 
   switch (destinationType.value) {
+    case 'slack':
+      if (!slackWebhookUrl.value.trim()) {
+        formError.value = 'Slack incoming webhook URL is required'
+        return null
+      }
+      return {
+        name: trimmedName,
+        destination_type: 'slack',
+        enabled: enabled.value,
+        config: { webhook_url: slackWebhookUrl.value.trim() },
+      }
+
     case 'webhook':
       if (!webhookUrl.value.trim()) {
         formError.value = 'Webhook URL is required'
@@ -206,6 +224,15 @@ function buildUpdatePayload(): NotificationDestinationUpdate | null {
   }
 
   switch (destinationType.value) {
+    case 'slack':
+      return {
+        name: trimmedName,
+        enabled: enabled.value,
+        ...(slackWebhookUrl.value.trim()
+          ? { config: { webhook_url: slackWebhookUrl.value.trim() } }
+          : {}),
+      }
+
     case 'webhook': {
       if (!webhookUrl.value.trim()) {
         formError.value = 'Webhook URL is required'
@@ -362,6 +389,9 @@ async function handleDelete(destination: NotificationDestination): Promise<void>
 
 function getDestinationDetails(destination: NotificationDestination): string {
   switch (destination.destination_type) {
+    case 'slack':
+      return 'Slack incoming webhook'
+
     case 'webhook':
       return destination.config.url
 
@@ -406,7 +436,7 @@ watch(
             {{ isEditing ? 'Edit destination' : 'Add destination' }}
           </h2>
 
-          <p>Configure Webhook, Telegram or Email delivery.</p>
+          <p>Configure Webhook, Telegram, Email or Slack delivery.</p>
         </div>
 
         <button v-if="isEditing" class="button-secondary" type="button" @click="resetForm">
@@ -483,6 +513,25 @@ watch(
 
               <input id="telegram-chat-id" v-model="telegramChatId" required />
             </div>
+          </div>
+        </template>
+
+        <template v-else-if="destinationType === 'slack'">
+          <div class="form-field">
+            <label for="slack-webhook-url"> Incoming webhook URL </label>
+            <input
+              id="slack-webhook-url"
+              v-model="slackWebhookUrl"
+              type="password"
+              autocomplete="new-password"
+              maxlength="2048"
+              placeholder="https://hooks.slack.com/services/..."
+              :required="!isEditing"
+            />
+            <small v-if="isEditing"> Leave empty to keep the existing webhook URL. </small>
+            <small v-else>
+              Create an incoming webhook in your Slack app for the desired channel.
+            </small>
           </div>
         </template>
 

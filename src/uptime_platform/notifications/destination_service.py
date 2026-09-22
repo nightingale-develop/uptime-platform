@@ -6,6 +6,7 @@ from uptime_platform.notifications.entities import (
     EmailDestinationConfig,
     NotificationDestination,
     NotificationDestinationConfig,
+    SlackDestinationConfig,
     TelegramDestinationConfig,
     WebhookDestinationConfig,
 )
@@ -17,6 +18,8 @@ from uptime_platform.notifications.schemas import (
     EmailDestinationConfigUpdate,
     NotificationDestinationCreate,
     NotificationDestinationUpdate,
+    SlackDestinationConfigCreate,
+    SlackDestinationConfigUpdate,
     TelegramDestinationConfigCreate,
     TelegramDestinationConfigUpdate,
     WebhookDestinationConfigCreate,
@@ -29,6 +32,7 @@ def _create_config(
         WebhookDestinationConfigCreate
         | TelegramDestinationConfigCreate
         | EmailDestinationConfigCreate
+        | SlackDestinationConfigCreate
     ),
 ) -> NotificationDestinationConfig:
     if isinstance(
@@ -63,6 +67,9 @@ def _create_config(
             security=config.security,
         )
 
+    if isinstance(config, SlackDestinationConfigCreate):
+        return SlackDestinationConfig(webhook_url=config.webhook_url)
+
     raise TypeError(f"Unsupported destination config: {type(config)}")
 
 
@@ -72,6 +79,7 @@ def _update_config(
         WebhookDestinationConfigUpdate
         | TelegramDestinationConfigUpdate
         | EmailDestinationConfigUpdate
+        | SlackDestinationConfigUpdate
     ),
 ) -> NotificationDestinationConfig:
     if isinstance(
@@ -131,6 +139,13 @@ def _update_config(
             ),
         )
 
+    if isinstance(current, SlackDestinationConfig) and isinstance(
+        update, SlackDestinationConfigUpdate
+    ):
+        return SlackDestinationConfig(
+            webhook_url=update.webhook_url or current.webhook_url
+        )
+
     raise ValueError("Destination config type does not match destination type")
 
 
@@ -188,7 +203,7 @@ class NotificationDestinationService:
 
         config = destination.config
 
-        if data.config is not None:
+        if data.config is not None and data.config.model_fields_set:
             config = _update_config(
                 current=destination.config,
                 update=data.config,

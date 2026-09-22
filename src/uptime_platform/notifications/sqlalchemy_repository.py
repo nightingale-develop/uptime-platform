@@ -12,6 +12,7 @@ from uptime_platform.notifications.entities import (
     NotificationDestination,
     NotificationDestinationConfig,
     NotificationDestinationType,
+    SlackDestinationConfig,
     TelegramDestinationConfig,
     WebhookDestinationConfig,
 )
@@ -163,6 +164,9 @@ class SqlAlchemyNotificationDestinationRepository:
                 chat_id=model.config["chat_id"],
             )
 
+        elif model.destination_type is NotificationDestinationType.SLACK:
+            config = SlackDestinationConfig(webhook_url=model.config["webhook_url"])
+
         elif model.destination_type is NotificationDestinationType.EMAIL:
             config = EmailDestinationConfig(
                 host=model.config["host"],
@@ -224,6 +228,9 @@ class SqlAlchemyNotificationDestinationRepository:
                 "to_email": config.to_email,
                 "security": config.security.value,
             }
+
+        if isinstance(config, SlackDestinationConfig):
+            return {"webhook_url": config.webhook_url}
 
         raise TypeError(f"Unsupported destination config: {type(config)}")
 

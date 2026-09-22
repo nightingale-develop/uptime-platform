@@ -7,6 +7,7 @@ from pydantic import (
     EmailStr,
     Field,
     HttpUrl,
+    field_validator,
     model_validator,
 )
 
@@ -14,6 +15,18 @@ from uptime_platform.notifications.entities import (
     EmailSecurity,
     NotificationDestinationType,
 )
+from uptime_platform.notifications.slack import validate_slack_webhook_url
+
+
+class SlackDestinationConfigCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    webhook_url: str = Field(repr=False)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return validate_slack_webhook_url(value)
 
 
 class WebhookDestinationConfigCreate(BaseModel):
@@ -89,6 +102,7 @@ class NotificationDestinationCreate(BaseModel):
         WebhookDestinationConfigCreate
         | TelegramDestinationConfigCreate
         | EmailDestinationConfigCreate
+        | SlackDestinationConfigCreate
     )
 
     @model_validator(mode="after")
@@ -121,6 +135,12 @@ class NotificationDestinationCreate(BaseModel):
             )
         ):
             raise ValueError("Email destination requires email configuration")
+
+        if (
+            self.destination_type is NotificationDestinationType.SLACK
+            and not isinstance(self.config, SlackDestinationConfigCreate)
+        ):
+            raise ValueError("Slack destination requires Slack configuration")
 
         return self
 
@@ -189,6 +209,19 @@ class EmailDestinationConfigUpdate(BaseModel):
     security: EmailSecurity | None = None
 
 
+class SlackDestinationConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    webhook_url: str | None = Field(default=None, repr=False)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def validate_url(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("Slack webhook URL cannot be null")
+        return validate_slack_webhook_url(value)
+
+
 class NotificationDestinationUpdate(BaseModel):
     name: str | None = Field(
         default=None,
@@ -202,6 +235,7 @@ class NotificationDestinationUpdate(BaseModel):
         WebhookDestinationConfigUpdate
         | TelegramDestinationConfigUpdate
         | EmailDestinationConfigUpdate
+        | SlackDestinationConfigUpdate
         | None
     ) = None
 
@@ -235,6 +269,10 @@ class EmailDestinationConfigResponse(BaseModel):
     security: EmailSecurity
 
 
+class SlackDestinationConfigResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
 class NotificationDestinationResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
@@ -249,6 +287,7 @@ class NotificationDestinationResponse(BaseModel):
         WebhookDestinationConfigResponse
         | TelegramDestinationConfigResponse
         | EmailDestinationConfigResponse
+        | SlackDestinationConfigResponse
     )
 
     created_at: datetime

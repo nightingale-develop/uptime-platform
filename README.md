@@ -5,7 +5,7 @@
 Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
 
 - HTTP, TCP, DNS, TLS certificate and ICMP checks.
-- Incidents, maintenance windows, webhook, Telegram and email notifications.
+- Incidents, maintenance windows, webhook, Telegram, email and Slack notifications.
 - Public status pages, organizations, roles and API keys.
 - PostgreSQL, concurrent schedulers and notification workers.
 - Optional HTTPS, Prometheus and Grafana.

@@ -1,13 +1,17 @@
-from typing import Annotated
+from collections.abc import Callable, Coroutine
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     Response,
     status,
 )
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 
 from uptime_platform.auth.dependencies import (
     require_admin,
@@ -30,9 +34,30 @@ from uptime_platform.notifications.schemas import (
     NotificationDestinationUpdate,
 )
 
+
+class NotificationRoute(APIRoute):
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+
+        async def handle(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except RequestValidationError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=[
+                        {key: error[key] for key in ("type", "loc", "msg")}
+                        for error in exc.errors()
+                    ],
+                ) from None
+
+        return handle
+
+
 router = APIRouter(
     prefix="/api/v1/notification-destinations",
     tags=["notification destinations"],
+    route_class=NotificationRoute,
 )
 
 
@@ -106,10 +131,13 @@ async def update_destination(
         Depends(require_admin),
     ],
 ) -> NotificationDestination:
-    destination = await service.update(
-        destination_id,
-        data,
-    )
+    try:
+        destination = await service.update(destination_id, data)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Destination config type does not match destination type",
+        ) from None
 
     if destination is None:
         raise HTTPException(

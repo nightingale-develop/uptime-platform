@@ -1,4 +1,4 @@
-export type NotificationDestinationType = 'webhook' | 'telegram' | 'email'
+export type NotificationDestinationType = 'webhook' | 'telegram' | 'email' | 'slack'
 
 export type EmailSecurity = 'none' | 'starttls' | 'tls'
 
@@ -27,7 +27,15 @@ interface BaseNotificationDestinationCreate {
   enabled: boolean
 }
 
+export interface SlackDestinationConfigCreate {
+  webhook_url: string
+}
+
 export type NotificationDestinationCreate =
+  | (BaseNotificationDestinationCreate & {
+      destination_type: 'slack'
+      config: SlackDestinationConfigCreate
+    })
   | (BaseNotificationDestinationCreate & {
       destination_type: 'webhook'
       config: WebhookDestinationConfigCreate
@@ -67,6 +75,10 @@ interface BaseNotificationDestination {
 
 export type NotificationDestination =
   | (BaseNotificationDestination & {
+      destination_type: 'slack'
+      config: Record<string, never>
+    })
+  | (BaseNotificationDestination & {
       destination_type: 'webhook'
       config: WebhookDestinationConfigResponse
     })
@@ -99,8 +111,15 @@ export interface EmailDestinationConfigUpdate {
   security?: EmailSecurity | null
 }
 
+export interface SlackDestinationConfigUpdate {
+  webhook_url?: string
+}
+
 export type NotificationDestinationConfigUpdate =
-  WebhookDestinationConfigUpdate | TelegramDestinationConfigUpdate | EmailDestinationConfigUpdate
+  | SlackDestinationConfigUpdate
+  | WebhookDestinationConfigUpdate
+  | TelegramDestinationConfigUpdate
+  | EmailDestinationConfigUpdate
 
 export interface NotificationDestinationUpdate {
   name?: string

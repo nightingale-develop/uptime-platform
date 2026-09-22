@@ -7,12 +7,14 @@ from uptime_platform.notifications.entities import (
     EmailDestinationConfig,
     NotificationDestination,
     NotificationDestinationType,
+    SlackDestinationConfig,
     TelegramDestinationConfig,
     WebhookDestinationConfig,
 )
 from uptime_platform.notifications.protocols import (
     NotificationChannelProtocol,
 )
+from uptime_platform.notifications.slack import SlackNotificationChannel
 from uptime_platform.notifications.telegram import (
     TelegramNotificationChannel,
 )
@@ -72,6 +74,16 @@ def create_notification_channel(
             from_email=destination.config.from_email,
             to_email=destination.config.to_email,
             security=destination.config.security,
+            timeout_seconds=timeout_seconds,
+            public_app_url=public_app_url,
+        )
+
+    if destination.destination_type is NotificationDestinationType.SLACK:
+        if not isinstance(destination.config, SlackDestinationConfig):
+            raise TypeError("Slack destination has invalid config")
+        return SlackNotificationChannel(
+            client=client,
+            webhook_url=destination.config.webhook_url,
             timeout_seconds=timeout_seconds,
             public_app_url=public_app_url,
         )

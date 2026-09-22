@@ -8,6 +8,7 @@ class NotificationDestinationType(StrEnum):
     WEBHOOK = "webhook"
     TELEGRAM = "telegram"
     EMAIL = "email"
+    SLACK = "slack"
 
 
 class EmailSecurity(StrEnum):
@@ -29,6 +30,11 @@ class TelegramDestinationConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class SlackDestinationConfig:
+    webhook_url: str
+
+
+@dataclass(frozen=True, slots=True)
 class EmailDestinationConfig:
     host: str
     port: int
@@ -40,7 +46,10 @@ class EmailDestinationConfig:
 
 
 type NotificationDestinationConfig = (
-    WebhookDestinationConfig | TelegramDestinationConfig | EmailDestinationConfig
+    WebhookDestinationConfig
+    | TelegramDestinationConfig
+    | EmailDestinationConfig
+    | SlackDestinationConfig
 )
 
 

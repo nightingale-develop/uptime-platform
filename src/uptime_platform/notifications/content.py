@@ -43,7 +43,10 @@ def safe_path(path: str, host: str) -> str:
             "apikey",
             "webhook",
             "webhooks",
-        } or (host.lower().rstrip(".") == "hooks.slack.com" and decoded == "services"):
+        } or (
+            host.lower().rstrip(".") in {"hooks.slack.com", "hooks.slack-gov.com"}
+            and decoded == "services"
+        ):
             hide_rest = True
         elif re.search(r"(?i)(?:token|secret|password|api[_-]?key)=", decoded) or (
             len(decoded) >= 24

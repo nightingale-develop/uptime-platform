@@ -4,8 +4,8 @@ The worker uses PostgreSQL delivery leases to coordinate multiple processes. No 
 
 ## Incident messages
 
-Telegram messages use plain text; email includes an HTML body and a plain-text alternative.
-Both show the monitor name, type and sanitized target before the technical UUIDs.
+Telegram and Slack messages use readable text; email includes an HTML body and a plain-text alternative.
+All show the monitor name, type and sanitized target before the technical UUIDs.
 An opening message includes the check's known failure reason. A recovery message
 includes the incident start, restoration time and elapsed duration, in UTC.
 Thresholds still determine when an incident opens and resolves; this duration is
@@ -41,6 +41,28 @@ and event-ID headers. New payloads include `monitor_id`, `incident_id`, `monitor
 `duration_seconds` and `monitor_url`. Timestamps use ISO 8601; missing values are
 JSON `null`, and duration is a number of seconds. Legacy UUID-only payloads remain
 supported. These additional JSON fields need no database migration.
+
+## Slack
+
+In your Slack app, enable **Incoming Webhooks**, select **Add New Webhook to Workspace**
+and authorize the destination channel ([Slack setup guide](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/)).
+In Uptime Platform, open **Notifications**, select **Slack** and paste the incoming
+webhook URL. HTTPS URLs on `hooks.slack.com` and `hooks.slack-gov.com` are supported.
+The Slack webhook determines the channel; no separate bot token or channel ID is needed.
+
+Treat the entire webhook URL as a password. It is hidden in API responses and the
+destination list. When editing, leave the field empty to retain it, or paste a new
+URL to rotate it. It is stored with the destination credentials in PostgreSQL.
+
+Slack receives the same incident snapshot as the other channels, with plain-text
+blocks and a **View monitor** button when `PUBLIC_APP_URL` is configured. User text
+cannot introduce Slack mentions or formatting; link previews are disabled. Failed
+requests, including rate limits, use the existing worker retry policy. Retries can
+produce duplicate messages if Slack accepted a request before a timeout or worker crash.
+
+Apply migration `b8d4e2f60173` with the normal update procedure before using Slack.
+Remove Slack destinations before downgrading this migration; downgrade refuses to
+discard their configuration automatically.
 
 ## Ownership and transactions
 
