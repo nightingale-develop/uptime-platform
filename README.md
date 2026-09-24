@@ -1,6 +1,8 @@
 # Uptime Platform
 
 ![Version](https://img.shields.io/badge/version-1.3.10-blue)
+[![Docker Pulls](https://img.shields.io/docker/pulls/sashastudent/uptime-platform)](https://hub.docker.com/repository/docker/sashastudent/uptime-platform)
+[![Helm](https://img.shields.io/badge/Helm-chart-0F1689?logo=helm&logoColor=white)](https://nightingale-develop.github.io/uptime-platform)
 
 Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
 
@@ -10,7 +12,7 @@ Self-hosted uptime monitoring with a FastAPI backend and Vue 3 dashboard.
 - PostgreSQL, concurrent schedulers and notification workers.
 - Optional HTTPS, Prometheus and Grafana.
 
-## Install
+## Install with Docker Compose
 
 Requires Linux, Docker Compose v2, Bash, Python 3, curl, openssl, getent and flock.
 
@@ -26,6 +28,64 @@ create your account and organization. Your account receives the owner role.
 - **This computer:** select `localhost`, then open <http://localhost:8080>.
 - **Domain:** configure DNS and open ports 80/443; Caddy provides HTTPS.
 - **IP address:** Caddy uses a private CA that must be trusted on client devices.
+
+## Install with Helm
+
+Uptime Platform can also be deployed to Kubernetes and OpenShift using the
+public Helm repository.
+
+```bash
+helm repo add uptime-platform https://nightingale-develop.github.io/uptime-platform
+helm repo update
+```
+
+### OpenShift
+
+```bash
+helm upgrade --install uptime-platform \
+  uptime-platform/uptime-platform
+```
+
+The chart deploys PostgreSQL, runs database migrations, and starts the API,
+scheduler, notification worker and frontend. On OpenShift, the application is
+exposed using a Route.
+
+### Kubernetes
+
+Enable an Ingress and provide the application hostname:
+
+```bash
+helm upgrade --install uptime-platform \
+  uptime-platform/uptime-platform \
+  --set route.enabled=false \
+  --set ingress.enabled=true \
+  --set ingress.host=uptime.example.com
+```
+
+Depending on the cluster, an Ingress controller and `ingress.className` may also
+need to be configured.
+
+Available chart versions can be listed with:
+
+```bash
+helm search repo uptime-platform
+```
+
+To upgrade the release:
+
+```bash
+helm repo update
+helm upgrade uptime-platform uptime-platform/uptime-platform
+```
+
+To uninstall it:
+
+```bash
+helm uninstall uptime-platform
+```
+
+Helm repository:
+<https://nightingale-develop.github.io/uptime-platform>
 
 API documentation: `<application URL>/backend/docs`.
 

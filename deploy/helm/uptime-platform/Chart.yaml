@@ -2,7 +2,7 @@ apiVersion: v2
 name: uptime-platform
 description: Helm chart for Uptime Platform on Kubernetes and OpenShift
 type: application
-version: 0.1.1
+version: 0.1.3
 appVersion: "latest"
 home: https://github.com/nightingale-develop/uptime-platform
 sources:
