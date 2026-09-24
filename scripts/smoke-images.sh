@@ -29,11 +29,11 @@ compose up -d --wait --wait-timeout 120 postgres
 compose run --rm --no-deps migrate
 compose up -d --no-deps --wait --wait-timeout 120 api scheduler notification-worker frontend
 for ((attempt=0; attempt<30; attempt++)); do
-  if compose exec -T frontend wget -q -T 2 -O - http://127.0.0.1/backend/health > "$stage/health.json"; then break; fi
+  if compose exec -T frontend wget -q -T 2 -O - http://127.0.0.1:8080/backend/health > "$stage/health.json"; then break; fi
   sleep 1
 done
-compose exec -T frontend wget -q -T 5 -O - http://127.0.0.1/ > "$stage/index.html"
-compose exec -T frontend wget -q -T 5 -O - http://127.0.0.1/backend/openapi.json > "$stage/openapi.json"
+compose exec -T frontend wget -q -T 5 -O - http://127.0.0.1:8080/ > "$stage/index.html"
+compose exec -T frontend wget -q -T 5 -O - http://127.0.0.1:8080/backend/openapi.json > "$stage/openapi.json"
 node - "$stage" "$expected_version" <<'JS'
 const fs = require('node:fs');
 const assert = require('node:assert/strict');

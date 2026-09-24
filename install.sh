@@ -200,7 +200,7 @@ if [[ "$host_kind" != local ]]; then
     [[ "$host_kind" != ip ]] || printf '{\n    default_sni %s\n}\n\n' "$host"
     printf '%s {\n' "$host"
     [[ "$host_kind" != ip ]] || printf '    tls internal\n'
-    printf '    reverse_proxy frontend:80\n}\n'
+    printf '    reverse_proxy frontend:8080\n}\n'
   } > "$stage/Caddyfile"
 fi
 staged() {
