@@ -40,7 +40,7 @@ COPY --from=builder /app/alembic.ini /app/alembic.ini
 COPY --from=builder /app/migrations /app/migrations
 
 LABEL org.opencontainers.image.title="Uptime Platform"
-LABEL org.opencontainers.image.version="1.3.9"
+LABEL org.opencontainers.image.version="1.3.10"
 LABEL org.opencontainers.image.description="Self-hosted uptime monitoring and incident management platform"
 LABEL org.opencontainers.image.source="https://github.com/nightingale-develop/uptime-platform"
 
