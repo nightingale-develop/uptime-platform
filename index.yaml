@@ -3,7 +3,20 @@ entries:
   uptime-platform:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-09-24T21:36:47.025075243Z"
+    created: "2026-09-24T21:42:05.859039178Z"
+    description: Helm chart for Uptime Platform on Kubernetes and OpenShift
+    digest: 877047cff7067edafe1e4b10e257645a139e2408c6fdd80938a24ad4d7970d7b
+    home: https://github.com/nightingale-develop/uptime-platform
+    name: uptime-platform
+    sources:
+    - https://github.com/nightingale-develop/uptime-platform
+    type: application
+    urls:
+    - https://nightingale-develop.github.io/uptime-platform/uptime-platform-0.1.3.tgz
+    version: 0.1.3
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-09-24T21:42:05.858498791Z"
     description: Helm chart for Uptime Platform on Kubernetes and OpenShift
     digest: a7fda263329f6e34ca26e4f24ee42575a0d541bf96fc16ab6509ec5b53b288ee
     home: https://github.com/nightingale-develop/uptime-platform
@@ -16,7 +29,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: latest
-    created: "2026-09-24T21:36:47.024383687Z"
+    created: "2026-09-24T21:42:05.857931473Z"
     description: Helm chart for Uptime Platform on Kubernetes and OpenShift
     digest: c666cb15cdfbddcd7000285e032a7b08729ee0719d81bd6ed6d7a24a112149f9
     home: https://github.com/nightingale-develop/uptime-platform
@@ -29,7 +42,7 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: latest
-    created: "2026-09-24T21:36:47.023702005Z"
+    created: "2026-09-24T21:42:05.857351366Z"
     description: Helm chart for Uptime Platform on Kubernetes and OpenShift
     digest: e0435c25b711202069e8e1d06c543d4f9552c7b28435ac012eeeffdb4a0fb644
     home: https://github.com/nightingale-develop/uptime-platform
@@ -40,4 +53,4 @@ entries:
     urls:
     - https://nightingale-develop.github.io/uptime-platform/uptime-platform-0.1.0.tgz
     version: 0.1.0
-generated: "2026-09-24T21:36:47.022764837Z"
+generated: "2026-09-24T21:42:05.856566342Z"
