@@ -1,6 +1,7 @@
 name: Release Helm Chart
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
