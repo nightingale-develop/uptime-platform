@@ -14,12 +14,11 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm run build
 
 
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 LABEL org.opencontainers.image.version="1.3.8"
 
-EXPOSE 80
+EXPOSE 8080
