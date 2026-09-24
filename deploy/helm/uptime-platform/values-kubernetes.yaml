@@ -1,0 +1,8 @@
+route:
+  enabled: false
+
+ingress:
+  enabled: true
+  host: uptime.example.com
+  tls:
+    enabled: false

@@ -1,0 +1,161 @@
+nameOverride: ""
+fullnameOverride: ""
+
+backend:
+  image:
+    repository: sashastudent/uptime-platform
+    tag: latest
+    pullPolicy: Always
+  replicas: 1
+  port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+frontend:
+  image:
+    repository: sashastudent/uptime-platform-frontend
+    tag: latest
+    pullPolicy: Always
+  replicas: 1
+  containerPort: 8080
+  service:
+    port: 80
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+scheduler:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+notificationWorker:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+postgresql:
+  enabled: true
+  image:
+    # OpenShift-friendly PostgreSQL image that supports arbitrary UIDs.
+    repository: quay.io/sclorg/postgresql-16-c9s
+    tag: latest
+    pullPolicy: IfNotPresent
+  auth:
+    database: uptime
+    username: uptime
+    # Leave empty to generate a password on first install and preserve it on upgrades.
+    password: ""
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+secrets:
+  # When create=true, the chart creates one Secret for PostgreSQL and application credentials.
+  # Empty application secrets are generated once and preserved on Helm upgrades.
+  create: true
+  existingSecret: ""
+  jwtSecret: ""
+  refreshTokenHashSecret: ""
+  apiKeyHashSecret: ""
+
+config:
+  notificationTimeoutSeconds: 5
+  publicAppUrl: ""
+
+  retentionEnabled: true
+  retentionChecksDays: 30
+  retentionIncidentsDays: 90
+  retentionNotificationsDays: 30
+  retentionIntervalSeconds: 60
+  retentionBatchSize: 1000
+
+  jwtAccessTokenTtlMinutes: 60
+  refreshTokenTtlDays: 30
+  refreshCookieName: refresh_token
+  refreshCookieSecure: false
+  refreshCookieSameSite: lax
+
+  # The browser normally calls /backend on the same frontend origin, so CORS is
+  # not needed for that path. Set this when exposing the API directly elsewhere.
+  corsAllowedOrigins: "http://localhost:8080"
+
+migrations:
+  enabled: true
+  activeDeadlineSeconds: 300
+  backoffLimit: 2
+  waitAttempts: 150
+  waitIntervalSeconds: 2
+
+route:
+  # Rendered only when the cluster exposes the OpenShift Route API.
+  enabled: true
+  host: ""
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  host: uptime.example.com
+  path: /
+  pathType: Prefix
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+imagePullSecrets: []
+
+podAnnotations: {}
+
+# Defaults are compatible with OpenShift restricted-v2. NET_RAW is disabled
+# because restricted SCCs commonly reject it. Enable only if your cluster policy
+# explicitly permits it and you need privileged ICMP checks.
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+  addNetRaw: false
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

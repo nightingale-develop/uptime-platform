@@ -1,0 +1,19 @@
+Uptime Platform has been installed.
+
+{{- if and .Values.route.enabled (.Capabilities.APIVersions.Has "route.openshift.io/v1/Route") }}
+OpenShift Route:
+  oc get route {{ include "uptime-platform.fullname" . }} -o jsonpath='{.spec.host}'
+{{- else if .Values.ingress.enabled }}
+Ingress host:
+  {{ .Values.ingress.host }}
+{{- else }}
+No public Route/Ingress is enabled. The frontend Service is:
+  {{ include "uptime-platform.frontendName" . }}:{{ .Values.frontend.service.port }}
+{{- end }}
+
+The chart automatically runs an Alembic migration Job for each install/upgrade revision.
+Application pods wait for the database schema to reach the image's Alembic head.
+
+Important: frontend nginx currently proxies to Service name "api", so install only
+one release of this chart per namespace unless the frontend nginx configuration is
+made configurable.

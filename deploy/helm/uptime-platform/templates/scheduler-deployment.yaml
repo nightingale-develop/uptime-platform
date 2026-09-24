@@ -1,0 +1,56 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "uptime-platform.fullname" . }}-scheduler
+  labels:
+    {{- include "uptime-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  replicas: {{ .Values.scheduler.replicas }}
+  selector:
+    matchLabels:
+      {{- include "uptime-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: scheduler
+  template:
+    metadata:
+      labels:
+        {{- include "uptime-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: scheduler
+    spec:
+      {{- include "uptime-platform.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.migrations.enabled }}
+      initContainers:
+        {{- include "uptime-platform.migrationWaitInitContainer" . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: scheduler
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            {{- include "uptime-platform.containerSecurityContext" . | nindent 12 }}
+          command: ["python", "-m", "uptime_platform.scheduler.main"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "uptime-platform.configMapName" . }}
+            - secretRef:
+                name: {{ include "uptime-platform.secretName" . }}
+          ports:
+            - name: metrics
+              containerPort: 9001
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

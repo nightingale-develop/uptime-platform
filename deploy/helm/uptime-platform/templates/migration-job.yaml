@@ -1,0 +1,63 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A new managed Job is created for each Helm revision. Application pods wait
+  # for the schema version before starting, so this also works with helm --wait.
+  name: {{ include "uptime-platform.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "uptime-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+spec:
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "uptime-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      {{- include "uptime-platform.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            {{- include "uptime-platform.containerSecurityContext" . | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "uptime-platform.secretName" . }}
+                  key: DATABASE_URL
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              python - <<'PY'
+              import asyncio
+              import os
+              import asyncpg
+
+              dsn = os.environ["DATABASE_URL"].replace(
+                  "postgresql+asyncpg://", "postgresql://", 1
+              )
+
+              async def wait_for_database() -> None:
+                  last_error = None
+                  for _ in range(90):
+                      try:
+                          connection = await asyncpg.connect(dsn)
+                          await connection.close()
+                          return
+                      except Exception as exc:
+                          last_error = exc
+                          await asyncio.sleep(2)
+                  raise RuntimeError(f"database did not become ready: {last_error}")
+
+              asyncio.run(wait_for_database())
+              PY
+              alembic upgrade head
+{{- end }}
